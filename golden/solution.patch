@@ -1,0 +1,28 @@
+--- a/src/mcp_rl_env/inventory.py
++++ b/src/mcp_rl_env/inventory.py
+@@
+         results: list[Product] = []
+         for product in self.products:
+-            if query in product.name.lower():
+-                results.append(product)
+-            for tag in product.tags:
+-                if query in tag.lower():
+-                    results.append(product)
++            matched = query in product.name.lower()
++            if not matched:
++                matched = any(query in tag.lower() for tag in product.tags)
++            if matched:
++                results.append(product)
+         return results
++
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from mcp_rl_env.inventory import InventoryService, Product
++
++
++def test_product_matching_multiple_fields_is_returned_once():
++    product = Product("X", "Red Sport Shoe", ("sport", "red", "shoe"), 1)
++    service = InventoryService([product])
++
++    assert [p.sku for p in service.search("r")] == ["X"]
