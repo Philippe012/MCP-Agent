@@ -1,75 +1,53 @@
+import os
 from pathlib import Path
-import subprocess
 from mcp.server.fastmcp import FastMCP
 
-ROOT = Path(__file__).resolve().parents[2]
+from mcp_rl_env import tools
+
+# ROOT defaults to the repository this file lives in (2 parents up from
+# src/mcp_rl_env/server.py), matching the original behaviour. Set
+# MCP_RL_ENV_ROOT to point an agent session at an isolated episode
+# workspace instead - this is how the evaluation harness runs many
+# episodes without ever touching the real repository on disk.
+ROOT = Path(os.environ.get("MCP_RL_ENV_ROOT", str(Path(__file__).resolve().parents[2]))).resolve()
 SRC_ROOT = ROOT
 mcp = FastMCP("software-engineering-environment")
-
-
-def _safe_path(relative: str) -> Path:
-    path = (SRC_ROOT / relative).resolve()
-    if SRC_ROOT not in path.parents and path != SRC_ROOT:
-        raise ValueError("Path escapes repository")
-    return path
 
 
 @mcp.tool()
 def list_files() -> list[str]:
     """List repository files available to the coding agent."""
-    ignored = {".git", ".venv", "__pycache__"}
-    return sorted(
-        str(p.relative_to(SRC_ROOT))
-        for p in SRC_ROOT.rglob("*")
-        if p.is_file() and not any(part in ignored for part in p.parts)
-    )
+    return tools.list_files(SRC_ROOT)
 
 
 @mcp.tool()
 def read_file(path: str) -> str:
     """Read a text file from the repository."""
-    return _safe_path(path).read_text(encoding="utf-8")
+    return tools.read_file(SRC_ROOT, path)
 
 
 @mcp.tool()
 def search_code(query: str) -> list[str]:
     """Find repository files containing a case-sensitive query."""
-    matches = []
-    for path in SRC_ROOT.rglob("*.py"):
-        if any(part in {".venv", "__pycache__"} for part in path.parts):
-            continue
-        text = path.read_text(encoding="utf-8")
-        if query in text:
-            matches.append(str(path.relative_to(SRC_ROOT)))
-    return sorted(matches)
+    return tools.search_code(SRC_ROOT, query)
 
 
 @mcp.tool()
 def write_file(path: str, content: str) -> str:
     """Write a repository text file."""
-    target = _safe_path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
-    return f"wrote {path}"
+    return tools.write_file(SRC_ROOT, path, content)
 
 
 @mcp.tool()
 def run_tests() -> dict:
     """Run the deterministic pytest suite."""
-    proc = subprocess.run(
-        ["python", "-m", "pytest", "-q"],
-        cwd=SRC_ROOT,
-        text=True,
-        capture_output=True,
-    )
-    return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
+    return tools.run_tests(SRC_ROOT)
 
 
 @mcp.tool()
 def git_diff() -> str:
     """Return the current git diff."""
-    proc = subprocess.run(["git", "diff", "--"], cwd=SRC_ROOT, text=True, capture_output=True)
-    return proc.stdout
+    return tools.git_diff(SRC_ROOT)
 
 
 if __name__ == "__main__":

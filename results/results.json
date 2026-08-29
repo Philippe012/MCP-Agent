@@ -1,0 +1,45 @@
+{
+  "source": "manually-driven reference episodes (see trajectories/README.md); this is real, small-n evidence produced without an Anthropic API key, not a statistical sample",
+  "task": "tasks/bugfix_inventory/task.md",
+  "episodes": {
+    "baseline": [
+      {
+        "episode_id": "manual-baseline-01",
+        "model": "claude-sonnet-5 (this session, manually driven, minimal-instruction protocol)",
+        "tool_call_count": 5,
+        "checkpoints": 0,
+        "tests_passed": true,
+        "behavior_passed": true,
+        "regression_test_present": false,
+        "reward": 0.85
+      }
+    ],
+    "advanced": [
+      {
+        "episode_id": "manual-advanced-01",
+        "model": "claude-sonnet-5 (this session, manually driven, structured plan+verify+checkpoint protocol)",
+        "tool_call_count": 9,
+        "checkpoints": 1,
+        "tests_passed": true,
+        "behavior_passed": true,
+        "regression_test_present": true,
+        "reward": 1.0
+      },
+      {
+        "episode_id": "manual-recovery-01",
+        "model": "claude-sonnet-5 (this session, manually driven, structured plan+verify+checkpoint protocol; includes one genuine tool-call failure and recovery, see CHANGELOG item 12)",
+        "tool_call_count": 10,
+        "checkpoints": 1,
+        "tests_passed": true,
+        "behavior_passed": true,
+        "regression_test_present": true,
+        "reward": 1.0
+      }
+    ]
+  },
+  "summary": {
+    "baseline": {"n": 1, "mean_reward": 0.85, "behavior_pass_rate": 1.0, "regression_test_rate": 0.0},
+    "advanced": {"n": 2, "mean_reward": 1.0, "behavior_pass_rate": 1.0, "regression_test_rate": 1.0}
+  },
+  "note": "Run `python -m eval.run_experiment --n 5` with ANTHROPIC_API_KEY set to regenerate this with a real N-episode sample from an autonomous LLM loop (agents/) instead of manually-driven episodes; see REPRODUCE.md. All rewards above were computed with the mutation-based regression check (verify.py, CHANGELOG item 10), not the earlier keyword-based one."
+}

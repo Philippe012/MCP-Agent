@@ -9,3 +9,8 @@ dependencies = ["mcp>=1.2,<2"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+# "runs" holds ephemeral, gitignored per-episode agent workspaces
+# (harness/workspace.py) that are themselves real git repos containing
+# their own copies of tests/ - pytest must never recurse into them when
+# testing this repository itself.
+norecursedirs = ["runs", ".venv", ".git"]

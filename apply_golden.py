@@ -1,19 +1,10 @@
 from pathlib import Path
+import importlib.util
 
 ROOT = Path(__file__).resolve().parent
 
 inventory_path = ROOT / "src" / "mcp_rl_env" / "inventory.py"
 regression_path = ROOT / "tests" / "test_task_regression.py"
-
-golden_code = '''        results: list[Product] = []
-        for product in self.products:
-            matched = query in product.name.lower()
-            if not matched:
-                matched = any(query in tag.lower() for tag in product.tags)
-            if matched:
-                results.append(product)
-        return results
-'''
 
 golden_test = '''from mcp_rl_env.inventory import InventoryService, Product
 
@@ -27,10 +18,28 @@ def test_product_matching_multiple_fields_is_returned_once():
 '''
 
 
-def main() -> int:
-    text = inventory_path.read_text(encoding="utf-8")
+def _search_is_already_fixed() -> bool:
+    """Behavioral check, not an exact-text match: load inventory.py fresh
+    and confirm a product matching more than one field is returned once.
 
-    if golden_code in text:
+    An earlier version of this check did a brittle substring match against
+    a hand-formatted copy of the golden code, which broke on any
+    whitespace-only reformatting of a functionally-correct fix (it failed
+    even against this repo's own already-fixed src/mcp_rl_env/inventory.py).
+    Checking the actual behavior is what the task cares about, so that's
+    what this checks.
+    """
+    spec = importlib.util.spec_from_file_location("mcp_rl_env_inventory_check", inventory_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    product = module.Product("X", "Red Sport Shoe", ("sport", "red", "shoe"), 1)
+    service = module.InventoryService([product])
+    return [p.sku for p in service.search("r")] == ["X"]
+
+
+def main() -> int:
+    if _search_is_already_fixed():
         print("Golden solution is already applied.")
     else:
         print("Current workspace differs from the original seed.")

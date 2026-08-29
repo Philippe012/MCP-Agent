@@ -1,0 +1,5 @@
+# Only needed to run the automated agent harness (agents/, eval/) with a
+# real Anthropic API key - not needed for the environment itself
+# (server.py, verify.py) or for the harness/ unit tests.
+-r requirements.txt
+anthropic>=0.68,<1

@@ -1,0 +1,131 @@
+{
+  "episode_id": "manual-advanced-01",
+  "agent": "advanced",
+  "model": "claude-sonnet-5 (this session, manually driven, structured plan+verify+checkpoint protocol)",
+  "task": "Fix duplicate search results in InventoryService.search()",
+  "started_at": "2026-08-28T15:30:26+00:00",
+  "finished_at": "2026-08-28T15:32:00+00:00",
+  "steps": [
+    {
+      "index": 0,
+      "at": "2026-08-28T15:30:27+00:00",
+      "t": 0.969,
+      "tool": "read_file",
+      "args": {
+        "path": "tasks/bugfix_inventory/task.md"
+      },
+      "result_preview": "# Task: Fix duplicate search results\n\nYou are working in a small inventory repository.\n\nThe `InventoryService.search()` method is reported to return the same product more than once when the search query matches multiple tags or both the product name and a tag.\n\n## Requirements\n\n1. A product must appear at most once in the result.\n2. Preserve the existing case-insensitive substring behavior.\n3. Preserve product ordering based on the original inventory order.\n4. Empty queries must still return all products exactly once.\n5. Add a regression test that proves a product matching more than one field is returned once.\n6. Do not change the public `Product` API.\n\n## Constraints\n\n- Use only the repository and the tools exposed through MCP.\n- Keep the implementation maintainable.\n- Run the tests before declaring success.\n",
+      "note": "Read the task statement. Advanced protocol: before doing anything else, enumerate every numbered requirement as an explicit checklist to verify against before finishing, rather than stopping at the first green test run.",
+      "retry_of": null
+    },
+    {
+      "index": 1,
+      "at": "2026-08-28T15:30:37+00:00",
+      "t": 1.219,
+      "tool": "list_files",
+      "args": {},
+      "result_preview": "[\"pyproject.toml\", \"requirements.txt\", \"src\\\\mcp_rl_env\\\\__init__.py\", \"src\\\\mcp_rl_env\\\\inventory.py\", \"tasks\\\\bugfix_inventory\\\\task.md\", \"tests\\\\test_inventory.py\"]",
+      "note": "Get oriented in the repository.",
+      "retry_of": null
+    },
+    {
+      "index": 2,
+      "at": "2026-08-28T15:30:40+00:00",
+      "t": 1.015,
+      "tool": "read_file",
+      "args": {
+        "path": "src/mcp_rl_env/inventory.py"
+      },
+      "result_preview": "from dataclasses import dataclass\n\n\n@dataclass(frozen=True)\nclass Product:\n    sku: str\n    name: str\n    tags: tuple[str, ...]\n    stock: int\n\n\nclass InventoryService:\n    def __init__(self, products: list[Product]) -> None:\n        self.products = products\n\n    def search(self, query: str) -> list[Product]:\n        query = query.strip().lower()\n\n        if not query:\n            return list(self.products)\n\n        results: list[Product] = []\n\n        for product in self.products:\n            if query in product.name.lower():\n                results.append(product)\n            for tag in product.tags:\n                if query in tag.lower():\n                    results.append(product)\n\n        return results\n",
+      "note": "Read the buggy search() implementation named in the task.",
+      "retry_of": null
+    },
+    {
+      "index": 3,
+      "at": "2026-08-28T15:30:42+00:00",
+      "t": 0.938,
+      "tool": "read_file",
+      "args": {
+        "path": "tests/test_inventory.py"
+      },
+      "result_preview": "from mcp_rl_env.inventory import InventoryService, Product\n\n\nPRODUCTS = [\n    Product(\"A1\", \"Red Running Shoe\", (\"sport\", \"red\", \"shoe\"), 10),\n    Product(\"B2\", \"Blue Backpack\", (\"travel\", \"blue\", \"bag\"), 4),\n    Product(\"C3\", \"Green Water Bottle\", (\"sport\", \"green\", \"bottle\"), 8),\n]\n\n\ndef test_search_by_name():\n    service = InventoryService(PRODUCTS)\n    assert [p.sku for p in service.search(\"backpack\")] == [\"B2\"]\n\n\ndef test_empty_query_returns_all():\n    service = InventoryService(PRODUCTS)\n    assert [p.sku for p in service.search(\"\")] == [\"A1\", \"B2\", \"C3\"]\n",
+      "note": "Advanced protocol step: review existing test coverage before editing, to see which requirements (esp. #5, the multi-field-match regression) are NOT already covered and will need a new test.",
+      "retry_of": null
+    },
+    {
+      "index": 4,
+      "at": "2026-08-28T15:30:59+00:00",
+      "t": 1.218,
+      "tool": "write_file",
+      "args": {
+        "path": "src/mcp_rl_env/inventory.py",
+        "content": "from dataclasses import dataclass\n\n\n@dataclass(frozen=True)\nclass Product:\n    sku: str\n    name: str\n    tags: tuple[str, ...]\n    stock: int\n\n\nclass InventoryService:\n    def __init__(self, products: list[Product]) -> None:\n        self.products = products\n\n    def search(self, query: str) -> list[Product]:\n        query = query.strip().lower()\n\n        if not query:\n            return list(self.products)\n\n        results: list[Product] = []\n\n        for product in self.products:\n            matched = query in product.name.lower()\n            if not matched:\n                matched = any(query in tag.lower() for tag in product.tags)\n            if matched:\n                results.append(product)\n\n        return results\n"
+      },
+      "result_preview": "wrote src/mcp_rl_env/inventory.py",
+      "note": "Same root-cause diagnosis as the naive baseline fix: the loop appended once per name match and once per matching tag, causing duplicates when 2+ fields matched. Fix: single 'matched' boolean (name OR any tag), append at most once. This preserves ordering (single pass, original list order) and the existing substring/case-insensitive behavior (unchanged .lower()/in checks), satisfying requirements 1-4 and 6 without touching the Product dataclass.",
+      "retry_of": null
+    },
+    {
+      "index": 5,
+      "at": "2026-08-28T15:31:02+00:00",
+      "t": 2.093,
+      "tool": "run_tests",
+      "args": {},
+      "result_preview": "{\"returncode\": 0, \"stdout\": \"..                                                                       [100%]\\n2 passed in 0.05s\\n\", \"stderr\": \"\"}",
+      "note": "Run the existing suite first as a fast sanity check before doing the fuller requirements audit.",
+      "retry_of": null
+    },
+    {
+      "index": 6,
+      "at": "2026-08-28T15:31:28+00:00",
+      "t": 1.187,
+      "tool": "write_file",
+      "args": {
+        "path": "tests/test_task_regression.py",
+        "content": "from mcp_rl_env.inventory import InventoryService, Product\n\n\ndef test_search_multiple_fields_does_not_duplicate_product():\n    \"\"\"Regression test for requirement 5: a product matching on both its\n    name and more than one tag must still be returned exactly once.\"\"\"\n    product = Product(\n        \"X\",\n        \"Red Shoe\",\n        (\"sport\", \"red\", \"shoe\"),\n        1,\n    )\n\n    service = InventoryService([product])\n\n    results = service.search(\"re\")\n\n    assert [item.sku for item in results] == [\"X\"]\n"
+      },
+      "result_preview": "wrote tests/test_task_regression.py",
+      "note": "Explicit requirements audit against the task checklist: (1) at-most-once - fixed; (2) case-insensitive substring - unchanged; (3) ordering - unchanged (single pass in original order); (4) empty query returns all once - unchanged early-return path; (5) regression test proving a multi-field match is deduplicated - NOT YET SATISFIED, the two pre-existing tests never exercise a product matching >1 field, so a passing run_tests here would be a false-positive signal of completeness; (6) Product API unchanged - confirmed by inspection. Writing the missing regression test now, using query 're' which matches both the name ('Red Shoe') and two tags ('red','shoe').",
+      "retry_of": null
+    },
+    {
+      "index": 7,
+      "at": "2026-08-28T15:31:32+00:00",
+      "t": 1.891,
+      "tool": "run_tests",
+      "args": {},
+      "result_preview": "{\"returncode\": 0, \"stdout\": \"...                                                                      [100%]\\n3 passed in 0.04s\\n\", \"stderr\": \"\"}",
+      "note": "Re-run the full suite now that the regression test exists, to confirm the fix actually satisfies it (not just the shallow pre-existing tests).",
+      "retry_of": 5
+    },
+    {
+      "index": 8,
+      "at": "2026-08-28T15:31:42+00:00",
+      "t": 1.281,
+      "tool": "git_diff",
+      "args": {},
+      "result_preview": "diff --git a/src/mcp_rl_env/inventory.py b/src/mcp_rl_env/inventory.py\nindex effa2d8..3cfde45 100644\n--- a/src/mcp_rl_env/inventory.py\n+++ b/src/mcp_rl_env/inventory.py\n@@ -22,10 +22,10 @@ class InventoryService:\n         results: list[Product] = []\n \n         for product in self.products:\n-            if query in product.name.lower():\n+            matched = query in product.name.lower()\n+            if not matched:\n+                matched = any(query in tag.lower() for tag in product.tags)\n+            if matched:\n                 results.append(product)\n-            for tag in product.tags:\n-                if query in tag.lower():\n-                    results.append(product)\n \n         return results\n",
+      "note": "Inspect the final diff before requesting approval to finish - this is the artifact a human reviewer would actually look at.",
+      "retry_of": null
+    }
+  ],
+  "checkpoints": [
+    {
+      "t": 0.0,
+      "kind": "finalize",
+      "message": "All 6 requirements checked: fix is minimal and localized, 3/3 tests pass including the new regression test, git_diff reviewed and confirmed clean. NOTE: git_diff only shows changes to files already tracked by git, so it did NOT surface the new tests/test_task_regression.py file (untracked) - a reviewer relying on git_diff alone would miss that a new test was even added. Cross-checked against run_tests output (3 passed, up from 2) instead. Requesting approval to finish.",
+      "approved": true,
+      "auto_approved": false,
+      "at": "2026-08-28T15:31:57+00:00"
+    }
+  ],
+  "verdict": {
+    "tests_passed": true,
+    "behavior_passed": true,
+    "regression_test_present": true,
+    "reward": 1.0,
+    "stdout": "...                                                                      [100%]\n3 passed in 0.02s\n\nDETERMINISTIC_BEHAVIOR=PASS\nREGRESSION_TEST=PASS\nREWARD=1.00"
+  },
+  "tool_call_count": 9,
+  "retry_count": 1
+}
