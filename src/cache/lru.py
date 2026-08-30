@@ -1,10 +1,14 @@
 class LRUCache:
+    """A fixed-capacity cache that evicts the least-recently-used key.
+    "Used" means either read (get) or written (put) - reading a key must
+    protect it from eviction exactly as writing it does."""
+
     def __init__(self, capacity: int) -> None:
         if capacity <= 0:
             raise ValueError("capacity must be positive")
         self.capacity = capacity
         self._data: dict = {}
-        self._order: list = [] 
+        self._order: list = []  # least-recently-used first
 
     def _touch(self, key) -> None:
         if key in self._order:
@@ -25,4 +29,5 @@ class LRUCache:
         self._touch(key)
 
     def keys_by_recency(self) -> list:
+        """Least-recently-used first."""
         return list(self._order)

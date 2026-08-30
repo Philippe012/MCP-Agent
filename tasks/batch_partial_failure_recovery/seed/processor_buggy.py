@@ -5,7 +5,7 @@ from typing import Callable
 @dataclass(frozen=True)
 class BatchResult:
     succeeded: list
-    failed: list 
+    failed: list  # list of (item, error_message) tuples
 
 
 def process_batch(items: list, worker: Callable) -> BatchResult:

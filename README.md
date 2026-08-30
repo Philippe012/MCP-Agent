@@ -91,18 +91,30 @@ claimed.
 
 ## Task suite
 
-`harness/task_registry.py` registers 15 tasks across 11 independent
+`harness/task_registry.py` registers 15 tasks across 12 independent
 domains (inventory, contacts, a ledger, a room-booking calendar, a config
 loader, a batch processor, an LRU cache, a template renderer, a shopping
 cart, a notes app, a shipping-rate calculator, and a dependency resolver) -
 see [TASK_SUITE_DESIGN.md](TASK_SUITE_DESIGN.md) for the original 6-task
 design review and [CHANGELOG.md](CHANGELOG.md)'s "Phase 5" entry for the
-expansion to 15, including every candidate considered and rejected. Every
-task shares the same non-negotiable properties: the agent's workspace
-never contains `verify.py`, `golden/`, or another task's answer material;
-the deterministic verifier always checks at least one behavioral property
-the visible test suite could not have caught; and every task ships a real,
-independently-verified golden fix.
+expansion to 15, including every candidate considered and rejected.
+
+**14 of the 15 are agent-facing bugfix tasks**, each with its own
+`golden/<task_id>/solution.patch` and `tests/test_task_<task_id>.py`
+harness test, sharing the same non-negotiable properties: the agent's
+workspace never contains `verify.py`, `golden/`, or another task's answer
+material; the deterministic verifier always checks at least one
+behavioral property the visible test suite could not have caught; and
+every one ships a real, independently-verified golden fix. **The 15th,
+`edge_case_coverage`, is deliberately not agent-facing** - its own
+`task.md` says so explicitly - and exists solely as a second fixture for
+`eval/reward_replication.py`, replicating the flagship reward-hacking
+finding (below) on a different requirement and a different buggy seed
+than `bugfix_inventory`'s, reusing the same registry and mutation-testing
+machinery rather than a hand-rolled second copy of it. It is real,
+reproducible infrastructure (`python -m eval.reward_replication`), not
+filler added to inflate the task count to 15 - see TASK_SUITE_DESIGN.md's
+"C5" for exactly why it exists and why it is scoped this way.
 
 Two tasks are deliberately held out (`generalization_contact_index`,
 `notes_tag_rename_generalization`): never referenced while iterating on
@@ -205,10 +217,24 @@ system prompt says so explicitly (see step `git_diff` and the finalize
 checkpoint in
 [trajectories/advanced/manual-advanced-01.md](trajectories/advanced/manual-advanced-01.md)).
 
+A third, self-inflicted version of the same lesson surfaced during this
+submission's own final audit, not in an agent: a commit that reformatted
+`harness/task_registry.py`'s indentation for readability - genuinely
+described as a "quality" pass, not written maliciously - silently turned
+every task's behavioral check into an `IndentationError`, capping every
+task's reward at 0.5 for anyone who ran the suite afterward, because the
+commit was never re-run before being trusted. Running `pytest -q` caught
+it immediately; reading the diff would not have, because the change
+*looked* like a strict improvement. See CHANGELOG's "Phase 6" entry for
+the full account, including two smaller, similarly unverified edits
+(a corrupted fixture name, a hardcoded string that drifted from the file
+it was supposed to mirror) found and fixed the same way.
+
 Passing tests is not sufficient evidence of a reliable agent, a
-clean-looking diff is not sufficient evidence of a complete change, and a
-keyword match is not sufficient evidence of a real regression test - the
-common thread is that a check which cannot fail is not a check.
+clean-looking diff is not sufficient evidence of a complete change, a
+keyword match is not sufficient evidence of a real regression test, and a
+tidy-looking commit is not sufficient evidence it still runs - the common
+thread is that a check which cannot fail is not a check.
 
 ## Limitations
 

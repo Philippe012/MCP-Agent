@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Booking:
     room: str
-    start: int 
+    start: int  # minutes since midnight
     end: int
 
 
@@ -16,7 +16,10 @@ class Calendar:
         for b in self.bookings:
             if b.room != room:
                 continue
-            
+            # Inclusive comparison: treats two bookings that only touch at
+            # a shared boundary (one ends exactly when the other starts)
+            # as overlapping, rejecting a perfectly valid back-to-back
+            # booking.
             if start <= b.end and b.start <= end:
                 return True
         return False

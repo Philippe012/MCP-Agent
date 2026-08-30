@@ -1,3 +1,15 @@
+"""Baseline agent: minimal-instruction, single-pass policy.
+
+This is the exact protocol the manually-driven reference episode in
+trajectories/baseline/ followed (see trajectories/README.md), automated so
+it can be re-run at scale with a real Anthropic API key. It deliberately
+gives the model no more guidance than "fix the bug, use the tools, run
+tests before finishing" - no explicit requirements checklist, no forced
+self-verification loop, no human-approval checkpoint. This is the
+comparison point the advanced agent (agents/advanced_agent.py) is measured
+against.
+"""
+
 from __future__ import annotations
 
 import asyncio
@@ -7,7 +19,6 @@ from pathlib import Path
 from agents.loop import DEFAULT_MODEL, run_agent_episode
 from harness.task_registry import DEFAULT_TASK_ID
 from harness.workspace import make_episode_workspace
-from harness.task_registry import get_task
 
 SYSTEM_PROMPT = """You are a coding agent working in a small software repository.
 You have tools to list files, read files, search code, write files, run the
@@ -44,6 +55,8 @@ if __name__ == "__main__":
     ap.add_argument("--task-file", default=None, help="defaults to the task-id's own task.md")
     ap.add_argument("--out-dir", default="trajectories/baseline")
     args = ap.parse_args()
+
+    from harness.task_registry import get_task
 
     task_file = args.task_file or get_task(args.task_id).task_file
     ws = make_episode_workspace(episode_id=args.episode, task_id=args.task_id)

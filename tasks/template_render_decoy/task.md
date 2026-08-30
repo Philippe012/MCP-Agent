@@ -1,8 +1,8 @@
 # Task: placeholders with spaces aren't being substituted
 
 You're working in a small template-rendering library used to build email
-bodies. `render("Hello {{ name }}!", {"name": "Mugisha"})` is supposed to
-produce `"Hello Mugisha!"`, but it's currently returning
+bodies. `render("Hello {{ name }}!", {"name": "Ada"})` is supposed to
+produce `"Hello Ada!"`, but it's currently returning
 `"Hello {{ name }}!"` unchanged - the placeholder isn't being substituted
 whenever there's a space next to the key name inside the braces.
 

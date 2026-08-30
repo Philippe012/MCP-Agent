@@ -8,17 +8,20 @@ regression_path = ROOT / "tests" / "test_task_regression.py"
 
 golden_test = '''from mcp_agent_benchmark.inventory import InventoryService, Product
 
-                def test_search_multiple_fields_does_not_duplicate_product():
-                    product = Product(
-                        "X",
-                        "Red Shoe",
-                        ("sport", "red", "shoe"),
-                        1,
-                    )
 
-                    service = InventoryService([product])
-                    results = service.search("re")
-                    assert [item.sku for item in results] == ["X"]'''
+def test_search_multiple_fields_does_not_duplicate_product():
+    product = Product(
+        "X",
+        "Red Shoe",
+        ("sport", "red", "shoe"),
+        1,
+    )
+
+    service = InventoryService([product])
+
+    results = service.search("re")
+
+    assert [item.sku for item in results] == ["X"]'''
 
 
 def _search_is_already_fixed() -> bool:

@@ -67,8 +67,8 @@ def test_verifier_scores_a_correct_fix_plus_regression_test_at_full_reward(seede
     regression.write_text(
         "from mcp_agent_benchmark.inventory import InventoryService, Product\n\n\n"
         "def test_multiple_fields_match_returns_product_once():\n"
-        "p = Product('X', 'Red Shoe', ('sport', 'red', 'shoe'), 1)\n"
-        "assert [x.sku for x in InventoryService([p]).search('re')] == ['X']\n",
+        "    p = Product('X', 'Red Shoe', ('sport', 'red', 'shoe'), 1)\n"
+        "    assert [x.sku for x in InventoryService([p]).search('re')] == ['X']\n",
         encoding="utf-8",
     )
     report = verify_workspace(seeded_workspace)

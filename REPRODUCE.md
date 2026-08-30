@@ -86,7 +86,14 @@ python verify.py
 
 Expected output: this repo's `src/` is the already-fixed reference state
 (kept as-is from before this submission, see README's "what existed
-before"), so this scores `REWARD=1.00`.
+before"), so this scores `REWARD=1.00`. With no `VERIFY_ROOT` set, this
+runs against the repo root itself, not a small isolated task workspace -
+its `tests_passed` step therefore runs the *entire* 134-test repo suite
+(~3 minutes on the machine this was verified on), not just the handful of
+tests a real episode workspace would have. This is expected and correct,
+not a hang - `VERIFY_ROOT=<a small workspace>` (see the task-specific
+invocation below) finishes in a couple of seconds because that workspace
+only contains one task's own tests.
 
 ```bash
 python apply_golden.py

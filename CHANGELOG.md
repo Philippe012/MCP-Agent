@@ -1163,3 +1163,96 @@ one example already in front of the agent.
 0.0/0.5/0.85/1.0 reward scale, and the original five tasks' own files -
 all reused unchanged, which is what makes the new tasks' scores directly
 comparable to the original five's in any future `results/`-style table.
+
+## Phase 6 - Final submission audit: two "cleanup" commits had silently broken every task's reward
+
+**What triggered this:** a full pre-submission audit, run the same way this
+project always verifies its own claims - by actually executing `pytest -q`,
+`python verify.py`, `python apply_golden.py`, `python -m eval.reward`, and
+`python -m eval.reward_replication`, not by reading the code and assuming
+the last commit's message ("Refined codes with higher quality") was
+accurate.
+
+**Evidence:** `pytest -q` failed 30 of 134 tests. Every task's
+`test_verifier_scores_the_real_fix_plus_regression_test_at_full_reward` and
+`test_verifier_rejects_a_vacuous_regression_test` test failed with a
+`behavior_passed: False` (reward capped at 0.5), across every one of the 15
+tasks including `bugfix_inventory` itself.
+
+**Root cause, found by direct reproduction, not guessing:** running
+`harness/task_registry.py`'s `behavior_check` source for any task
+verbatim through `python -c` raised `IndentationError: unexpected indent`.
+The most recent commit before this audit had reformatted every
+`TaskSpec.behavior_check` triple-quoted string to match the surrounding
+Python source's indentation (12 spaces, consistent with normal code style
+inside a dataclass literal) - but `verify.py` passes that string directly
+to `python -c` as a *standalone script*, where a top-level indented
+statement is a syntax error. The string needs zero leading whitespace on
+every line to run, which is exactly what it had before that commit
+reformatted it. This is the same mistake in miniature that
+`RESEARCH.md`'s flagship finding is about: a change that visibly "looked"
+like an improvement (consistent indentation, fewer inline comments) was
+never actually executed before being called "higher quality," so it broke
+the one property (`behavior_passed`) that keeps "the visible tests pass"
+from ever being sufficient for full reward, at every task simultaneously.
+
+**A second, independent corruption found the same way**, one commit
+earlier: `apply_golden.py`'s hardcoded `golden_test` fallback string and a
+regression-test fixture embedded in `tests/test_harness.py` had both lost
+their function-body indentation the same way (an unindented `def` body is
+also a syntax error, so both would crash immediately rather than merely
+fail an assertion), `tests/test_templating.py::test_unspaced_placeholder_is_substituted`
+asserted an expected output of `"Hi Philippe"` for an input of
+`{"name": "Bo"}` (a fixture edited to insert a name that does not match
+its own test's input), `tests/test_contact_index.py`'s `CONTACTS` fixture
+had `"Dana Reyes"` / `"Priya Shah"` replaced with two contacts both named
+"Philippe" (breaking its own `find("shah")` assertion, and reintroducing a
+real person's name into what this project's own ground rules require to
+be synthetic data), and `tasks/template_render_decoy/task.md`'s worked
+example had `"Ada"` replaced with `"Mugisha"`, inconsistent with the
+task's own hidden verifier (`task_registry.py` still checks against
+`"Ada"`). None of these were caught at the time because the commits that
+introduced them were never re-verified by actually running the suite
+afterward - they were trusted because they were framed as low-risk
+cleanup.
+
+**Decision:** diffed the two suspect commits against their parents with
+`git diff -w` (ignoring whitespace) across every file each one touched, to
+separate genuine content changes from pure reformatting before deciding
+how to fix each one. Confirmed this way that the indentation-breaking
+commit changed no logic anywhere in the 37 files it touched - only
+comments, docstrings, and the one `task.md` wording corruption above - so
+`harness/task_registry.py`, `harness/verifier.py`, `harness/workspace.py`,
+`harness/mcp_client.py`, `harness/fault_injection.py`,
+`harness/trajectory.py`, every `agents/*.py` and `eval/*.py` file, every
+`src/*.py` reference implementation, every task's `seed/*_buggy.py`
+fixture, and `tasks/template_render_decoy/task.md` were restored to their
+pre-corruption content (correct indentation, the original explanatory
+comments this project's own documentation philosophy argues for, and
+`"Ada"` instead of `"Mugisha"`). `apply_golden.py`'s fallback string,
+`tests/test_harness.py`'s embedded fixture, `tests/test_templating.py`,
+and `tests/test_contact_index.py` needed hand fixes instead, since their
+corruption predated the commit being reverted and existed independently of
+it.
+
+**Verification:** `pytest -q` -> `134 passed` (matching REPRODUCE.md's
+documented count, restored - not raised or lowered by fixing this).
+`python verify.py` -> `REWARD=1.00` (the default `bugfix_inventory` task,
+already-fixed reference state). `python apply_golden.py` -> `Golden
+solution is already applied` / `Golden regression test already present`.
+`python -m eval.reward` and `python -m eval.reward_replication` reproduce
+byte-identical results to the committed
+`experiments/reward_hacking/{results,replication_results}.json` (modulo a
+trailing newline), confirming the flagship finding, its replication, and
+the second (`source_text_coupled_test`) exploit from Phase 4 all survive
+this fix unchanged, exactly as expected since none of them touch
+`behavior_check` correctness.
+
+**Why this is reported here instead of silently fixed:** this project's
+own hot take argues that a check which cannot be shown to fail on the
+thing it's supposed to catch is not a check - and a "code quality" pass
+that reformats behavior-critical strings without ever running them is
+exactly that failure mode, discovered against this project's own codebase
+rather than only its evaluator. It is recorded as its own entry, not
+folded into an earlier one, because it is a second, real, freshly-found
+instance of the same lesson - not a hypothetical one.

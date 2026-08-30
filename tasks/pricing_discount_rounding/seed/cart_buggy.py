@@ -19,6 +19,9 @@ class Cart:
         return sum(self.line_totals_cents())
 
     def total_with_discount_cents(self, discount_percent: int) -> int:
+        # BUG: rounds the discount separately for every line item instead
+        # of once on the subtotal - each line's rounding error compounds,
+        # so a multi-item basket's total can come out a cent or two high.
         total = 0
         for item in self.items:
             line = item.unit_price_cents * item.quantity

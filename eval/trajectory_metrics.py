@@ -15,6 +15,9 @@ def compute(trajectory: dict) -> dict:
     failures = [s for s in steps if not s.get("success", True)]
     retries = [s for s in steps if s.get("retry_of") is not None]
     durations = [s["duration_s"] for s in steps if s.get("duration_s") is not None]
+    # A later step's retry_of must actually point at a specific failure's
+    # index - co-occurrence of "some failure" and "some retry" anywhere in
+    # the episode isn't evidence they're related.
     retry_targets = {s["retry_of"] for s in steps if s.get("retry_of") is not None}
     recovered_from_failure = any(f["index"] in retry_targets for f in failures)
 

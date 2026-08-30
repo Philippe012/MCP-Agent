@@ -24,10 +24,12 @@ def list_files(root: Path) -> list[str]:
 
 
 def read_file(root: Path, path: str) -> str:
+    """Read a text file from the repository."""
     return _safe_path(root, path).read_text(encoding="utf-8")
 
 
 def search_code(root: Path, query: str) -> list[str]:
+    """Find repository files containing a case-sensitive query."""
     matches = []
     for path in root.rglob("*.py"):
         if any(part in IGNORED_DIR_PARTS for part in path.parts):
@@ -39,6 +41,7 @@ def search_code(root: Path, query: str) -> list[str]:
 
 
 def write_file(root: Path, path: str, content: str) -> str:
+    """Write a repository text file."""
     target = _safe_path(root, path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
@@ -46,6 +49,7 @@ def write_file(root: Path, path: str, content: str) -> str:
 
 
 def run_tests(root: Path) -> dict:
+    """Run the deterministic pytest suite."""
     env = {"PYTHONPATH": str(root / "src")}
     import os
 
@@ -61,6 +65,7 @@ def run_tests(root: Path) -> dict:
 
 
 def git_diff(root: Path) -> str:
+    """Return the current git diff."""
     proc = subprocess.run(
         ["git", "diff", "--"], cwd=root, text=True, capture_output=True, stdin=subprocess.DEVNULL
     )

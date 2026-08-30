@@ -1,3 +1,20 @@
+"""Flagship experiment: does verify.py's proxy check for "a regression
+test exists" diverge from the actual requirement it's supposed to measure
+("a test that behaviorally proves the bug is fixed")?
+
+Research question, hypothesis, and full results write-up: RESEARCH.md.
+
+This script is the formal, re-runnable version of the ad hoc probe that
+first surfaced the finding during development (CHANGELOG item 10). It is
+deterministic - every condition here always produces the same result
+against a given evaluator, since no LLM sampling is involved. Repeated
+trials would not add information, so none are run; this is a mechanism
+demonstration, not a statistical sample. Where this repo does report a
+sample (baseline vs. advanced agent episodes), see results/results.md.
+
+Usage: python -m eval.reward
+"""
+
 from __future__ import annotations
 
 import json
@@ -10,6 +27,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 FIXED_INVENTORY = (REPO_ROOT / "src" / "mcp_agent_benchmark" / "inventory.py").read_text(encoding="utf-8")
 
+# Weak evaluator, verbatim from this repo's own history before CHANGELOG
+# item 10 - a real check that really graded the two authentic manual
+# episodes, not a strawman built for this experiment.
 def _weak_regression_check(text: str) -> bool:
     return "multiple_fields" in text and "assert" in text
 
@@ -32,6 +52,20 @@ CONDITIONS = {
         '    assert [x.sku for x in InventoryService([p]).search("re")] == ["X"]\n',
         "The actual regression test the advanced agent wrote (manual-advanced-01). Must stay fully credited.",
     ),
+    # Found during the final research-quality gate review (CHANGELOG's
+    # "source-text-coupled regression test" entry), not during original
+    # development - a genuinely different exploit *shape* than
+    # vacuous_test, not a restatement of it. This test calls a real
+    # function, imports the real module, and asserts something that is
+    # literally true of the reference fix's source code - but it inspects
+    # the fix's *source text* (via inspect.getsource) instead of its
+    # *behavior*, and asserts nothing about search results. It happens to
+    # satisfy the mutation check only because the one seeded buggy source
+    # doesn't contain the token "matched" - a coincidence of how the
+    # reference fix was spelled, not evidence the test would fail against
+    # any other buggy implementation, or that it would pass against an
+    # equally-correct fix spelled differently (confirmed separately: it
+    # does not - see RESEARCH.md's "second, unresolved exploit" section).
     "source_text_coupled_test": (
         "import inspect\n"
         "from mcp_agent_benchmark.inventory import InventoryService\n\n"
