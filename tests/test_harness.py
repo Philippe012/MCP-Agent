@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import sys
+import os
+import subprocess
 from pathlib import Path
-
+    
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -65,8 +67,8 @@ def test_verifier_scores_a_correct_fix_plus_regression_test_at_full_reward(seede
     regression.write_text(
         "from mcp_agent_benchmark.inventory import InventoryService, Product\n\n\n"
         "def test_multiple_fields_match_returns_product_once():\n"
-        "    p = Product('X', 'Red Shoe', ('sport', 'red', 'shoe'), 1)\n"
-        "    assert [x.sku for x in InventoryService([p]).search('re')] == ['X']\n",
+        "p = Product('X', 'Red Shoe', ('sport', 'red', 'shoe'), 1)\n"
+        "assert [x.sku for x in InventoryService([p]).search('re')] == ['X']\n",
         encoding="utf-8",
     )
     report = verify_workspace(seeded_workspace)
@@ -89,31 +91,17 @@ def test_verifier_rejects_a_vacuous_regression_test(seeded_workspace):
 
 
 def test_seed_include_never_lists_the_answer_shaped_regression_test():
-    # workspace.py already unlinks each task's regression_test_path
-    # defensively (test_seed_workspace_contains_only_sandboxed_files covers
-    # this for bugfix_inventory), but this asserts the stronger invariant
-    # directly on every registered task's seed_include, so a future task
-    # (or a future edit like "tests/test_inventory.py" -> "tests") can't
-    # silently start copying its own answer key in.
     from harness.task_registry import all_task_ids, get_task
 
     for task_id in all_task_ids():
         spec = get_task(task_id)
         assert spec.regression_test_path not in spec.seed_include
-        # A whole-directory include would sweep the regression test in
-        # regardless of its exact name.
         assert not any(
             spec.regression_test_path.startswith(rel.rstrip("/") + "/") for rel in spec.seed_include
         )
 
 
 def test_seed_include_never_lists_another_tasks_directory():
-    # The original design copied the entire `tasks/` directory into every
-    # workspace - harmless with one task, but it would have leaked every
-    # other task's task.md (and any future task-specific answer material
-    # under tasks/<id>/) into every episode the moment a second task
-    # existed. Each task must list only its own task.md, not "tasks" or
-    # another task's subtree.
     from harness.task_registry import all_task_ids, get_task
 
     for task_id in all_task_ids():
@@ -125,17 +113,10 @@ def test_seed_include_never_lists_another_tasks_directory():
 
 
 def test_make_episode_workspace_can_reuse_an_episode_id_after_cleanup(tmp_path):
-    # Regression test for a real Windows bug: git writes .git/objects/* as
-    # read-only by design, and a prior plain `shutil.rmtree` (both here and
-    # in cleanup()'s old `ignore_errors=True`) could not delete them. A
-    # cleaned-up-but-not-actually-deleted workspace then made the *next*
-    # make_episode_workspace() call with the same episode_id crash instead
-    # of cleanup() itself failing loudly - discovered by running
-    # `eval.reward` twice in a row against a real temp directory.
     ws = make_episode_workspace(base_dir=tmp_path, episode_id="reuse-me")
     assert ws.exists()
     cleanup(ws)
-    assert not ws.exists()  # cleanup must actually remove it, not just claim to
+    assert not ws.exists() 
 
     ws2 = make_episode_workspace(base_dir=tmp_path, episode_id="reuse-me")
     assert ws2.exists()
@@ -143,9 +124,6 @@ def test_make_episode_workspace_can_reuse_an_episode_id_after_cleanup(tmp_path):
 
 
 def test_server_refuses_to_start_without_mcp_agent_benchmark_root():
-    import os
-    import subprocess
-
     env = {k: v for k, v in os.environ.items() if k != "MCP_AGENT_BENCHMARK_ROOT"}
     env["PYTHONPATH"] = str(REPO_ROOT / "src")
     proc = subprocess.run(
@@ -176,5 +154,5 @@ def test_trajectory_round_trips_through_save_and_load(tmp_path):
     reloaded = Trajectory.load(json_path)
     assert reloaded.steps[0]["tool"] == "list_files"
     assert reloaded.checkpoints[0]["approved"] is True
-    assert md_path.exists() and "reasoning note" not in md_path.read_text(encoding="utf-8")  # sanity: real content, not a placeholder
+    assert md_path.exists() and "reasoning note" not in md_path.read_text(encoding="utf-8") 
     assert "orient in the repo" in md_path.read_text(encoding="utf-8")

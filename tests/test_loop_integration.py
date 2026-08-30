@@ -1,12 +1,3 @@
-"""Proves task_id and session_factory actually propagate through the full
-run_agent_episode loop, not just through the individual components in
-isolation - the previous Phase 1 hardening pass caught a real bug this
-same way (a hardcoded retry_of=None that individual-component tests never
-exercised). No live model: anthropic.AsyncAnthropic is replaced with a
-scripted stand-in that returns one tool call then finishes, matching the
-verification style CHANGELOG's Phase 1 entry already established.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -82,12 +73,6 @@ def test_task_id_and_session_factory_propagate_through_the_full_loop(tmp_path, m
     finally:
         cleanup(ws)
 
-    # If task_id had silently defaulted to bugfix_inventory instead of
-    # actually being threaded through to verify_workspace, this seeded-but-
-    # untouched restock bug would score 0.85 (bugfix_inventory's behavior
-    # check only exercises search(), which this seed's search() already
-    # passes) instead of the correct 0.5 (restock's own behavior check
-    # catches the seeded bug).
     assert report["behavior_passed"] is False
     assert report["reward"] == 0.5
 
@@ -96,7 +81,5 @@ def test_task_id_and_session_factory_propagate_through_the_full_loop(tmp_path, m
 
     steps = json.loads(trajectory_path.read_text(encoding="utf-8"))["steps"]
     assert len(steps) == 1
-    # If session_factory had silently fallen back to a real MCPToolSession,
-    # this call would have succeeded instead of hitting the injected fault.
     assert steps[0]["tool"] == "list_files"
     assert steps[0]["success"] is False

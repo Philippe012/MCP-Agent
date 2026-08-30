@@ -39,7 +39,7 @@ def test_seed_workspace_contains_only_sandboxed_files(seeded_workspace):
 def test_verifier_scores_unfixed_seed_below_full_reward(seeded_workspace):
     report = verify_workspace(seeded_workspace, task_id=TASK_ID)
     assert report["reward"] < 1.0
-    assert report["behavior_passed"] is False  # A1 restock leaks into A10
+    assert report["behavior_passed"] is False 
 
 
 def test_verifier_scores_the_real_fix_plus_regression_test_at_full_reward(seeded_workspace):
@@ -70,39 +70,34 @@ def test_verifier_rejects_a_vacuous_regression_test(seeded_workspace):
 
 
 def test_an_over_generalized_fix_that_breaks_search_scores_zero(seeded_workspace):
-    # The realistic self-correction trap this task is designed to surface
-    # (TASK_SUITE_DESIGN.md C1): an agent "fixing" restock's matching style
-    # could over-generalize and make search() exact-match too, which is
-    # wrong and must be caught by the *existing* test suite, not a new one.
     over_generalized = """from dataclasses import dataclass, replace
 
+    @dataclass(frozen=True)
+    class Product:
+        sku: str
+        name: str
+        tags: tuple[str, ...]
+        stock: int
 
-@dataclass(frozen=True)
-class Product:
-    sku: str
-    name: str
-    tags: tuple[str, ...]
-    stock: int
 
+    class InventoryService:
+        def __init__(self, products):
+            self.products = products
 
-class InventoryService:
-    def __init__(self, products):
-        self.products = products
+        def restock(self, sku, qty):
+            self.products = [
+                replace(p, stock=p.stock + qty) if p.sku == sku else p
+                for p in self.products
+            ]
 
-    def restock(self, sku, qty):
-        self.products = [
-            replace(p, stock=p.stock + qty) if p.sku == sku else p
-            for p in self.products
-        ]
-
-    def search(self, query):
-        query = query.strip().lower()
-        if not query:
-            return list(self.products)
-        return [p for p in self.products if query == p.name.lower()]
-"""
+        def search(self, query):
+            query = query.strip().lower()
+            if not query:
+                return list(self.products)
+            return [p for p in self.products if query == p.name.lower()]
+    """
     (seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py").write_text(over_generalized, encoding="utf-8")
 
     report = verify_workspace(seeded_workspace, task_id=TASK_ID)
-    assert report["tests_passed"] is False  # tests/test_inventory.py::test_search_by_name regresses
+    assert report["tests_passed"] is False 
     assert report["reward"] == 0.0

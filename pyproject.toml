@@ -5,19 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mcp-agent-benchmark"
 version = "0.1.0"
-dependencies = ["mcp>=1.2,<2"]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "mcp>=1.2,<2",
+    "anthropic>=0.68,<1",
+]
 
-# agents/, harness/, and eval/ live at the repo root (not under src/) and
-# need to be importable from anywhere once this project is `pip install
-# -e .`-ed, which is how a judge (or eval/run_experiment.py, or a test
-# file) reliably gets `import agents.loop` / `import harness.workspace`
-# to work regardless of current working directory - no sys.path hacks in
-# individual scripts. Every other package below lives under src/ since
-# each is a sandboxed application package some task's episode workspace
-# operates on, not harness code - one per task domain added in the
-# suite's expansion to 15 tasks (see CHANGELOG's Phase 5 entry). (Renamed
-# from mcp_rl_env: this project does not train or run reinforcement
-# learning against these tasks - see CHANGELOG's rename entry.)
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+]
+
 [tool.setuptools]
 packages = [
     "mcp_agent_benchmark", "contact_index", "agents", "harness", "eval",
@@ -41,8 +39,8 @@ deps = "src/deps"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-# "runs" holds ephemeral, gitignored per-episode agent workspaces
-# (harness/workspace.py) that are themselves real git repos containing
-# their own copies of tests/ - pytest must never recurse into them when
-# testing this repository itself.
+# `runs/` contains ephemeral per-episode workspaces created by
+# `harness/workspace.py`. Each workspace is itself a Git repository
+# with its own tests/, so pytest must not recurse into runs/ when
+# testing the benchmark repository.
 norecursedirs = ["runs", ".venv", ".git"]

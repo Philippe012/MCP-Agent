@@ -1,10 +1,3 @@
-"""FaultInjectingMCPToolSession must be deterministic (same condition ->
-same failure point, every run) and must leave every non-faulted call
-reaching the real MCP server unmodified - otherwise a "recovery" measured
-against it would be recovery from a mock, not from the real environment
-contract (MCPToolError) agents actually see.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -82,8 +75,6 @@ def test_same_condition_produces_the_same_failure_point_on_a_second_run(seeded_w
 
 
 def test_non_faulted_calls_still_reach_the_real_server(seeded_workspace):
-    # Fault only read_file; list_files must still return the real,
-    # unmodified file listing from the real server.
     conditions = (FaultCondition(tool="read_file", occurrence=1),)
 
     async def _go():
@@ -97,5 +88,5 @@ def test_non_faulted_calls_still_reach_the_real_server(seeded_workspace):
             return files, read_failed
 
     files, read_failed = _run(_go())
-    assert any("inventory.py" in f for f in files)  # list_files uses native path separators on Windows
+    assert any("inventory.py" in f for f in files) 
     assert read_failed is True

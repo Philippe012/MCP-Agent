@@ -151,7 +151,7 @@ python -m eval.trajectory_metrics trajectories/advanced/my-episode.json
 this part needs is the key:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...          # Windows PowerShell: $env:ANTHROPIC_API_KEY = "sk-ant-..."
+export ANTHROPIC_API_KEY=sk-ant-...          
 
 # One episode of each policy:
 python -m agents.baseline_agent --episode baseline-auto-01
@@ -164,14 +164,9 @@ cat results/results.md
 # Against a different task in harness/task_registry.py (e.g. the C1 task):
 python -m eval.run_experiment --n 5 --task-id bugfix_restock_exact_match
 
-# generalization_contact_index and notes_tag_rename_generalization are
-# both held out (TASK_SUITE_DESIGN.md C6; CHANGELOG's Phase 5): run them
-# only to measure generalization, never while iterating on prompts - their
-# wording and bug shape must stay unseen during development.
 python -m eval.run_experiment --n 3 --task-id generalization_contact_index --run-id generalization-check
 python -m eval.run_experiment --n 3 --task-id notes_tag_rename_generalization --run-id generalization-check-2
 
-# Any of the ten tasks added in Phase 5 works the same way, e.g.:
 python -m eval.run_experiment --n 5 --task-id ledger_transfer_rollback
 ```
 

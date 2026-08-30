@@ -14,7 +14,7 @@ solutions?
 This project's infrastructure could plausibly support several of the
 usual agent-research directions: tool-use planning, failure recovery,
 robustness to unreliable tools, generalization to unseen tasks. Reward
-hacking was selected over all of them for one concrete reason: it is the
+hacking was selected over all of them for one concrete reason, it is the
 only direction backed by evidence that already existed in this
 codebase's own history before this experiment was formalized, not
 evidence constructed to fit a chosen narrative. While hardening

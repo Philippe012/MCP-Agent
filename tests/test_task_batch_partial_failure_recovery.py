@@ -39,7 +39,7 @@ def test_seed_workspace_contains_only_sandboxed_files(seeded_workspace):
 def test_verifier_scores_unfixed_seed_below_full_reward(seeded_workspace):
     report = verify_workspace(seeded_workspace, task_id=TASK_ID)
     assert report["reward"] < 1.0
-    assert report["behavior_passed"] is False  # one failing item aborts the batch
+    assert report["behavior_passed"] is False 
 
 
 def test_verifier_scores_the_real_fix_plus_regression_test_at_full_reward(seeded_workspace):

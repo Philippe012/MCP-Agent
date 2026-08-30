@@ -2,8 +2,8 @@ from contact_index.directory import Directory, Contact
 
 
 CONTACTS = [
-    Contact("C1", "Dana Reyes", ("family", "primary"), "555-0101"),
-    Contact("C2", "Priya Shah", ("work", "manager"), "555-0202"),
+    Contact("C1", "Philippe Mugisha", ("family", "primary"), "555-0101"),
+    Contact("C2", "Philippe Engineer", ("work", "manager"), "555-0202"),
 ]
 
 

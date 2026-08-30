@@ -15,7 +15,7 @@ def test_write_order_eviction_evicts_the_oldest_write():
     cache = LRUCache(2)
     cache.put("a", 1)
     cache.put("b", 2)
-    cache.put("c", 3)  # "a" was never touched again, must be evicted
+    cache.put("c", 3) 
     assert cache.get("a") is None
     assert cache.get("b") == 2
     assert cache.get("c") == 3

@@ -33,14 +33,14 @@ def test_seed_workspace_contains_both_files_with_the_bug_in_rates_not_quote(seed
     quote_text = (seeded_workspace / "src" / "shipping" / "quote.py").read_text(encoding="utf-8")
     rates_text = (seeded_workspace / "src" / "shipping" / "rates.py").read_text(encoding="utf-8")
     fixed_quote = (REPO_ROOT / "src" / "shipping" / "quote.py").read_text(encoding="utf-8")
-    assert quote_text == fixed_quote  # quote.py is correct and unchanged in the seed
+    assert quote_text == fixed_quote 
     assert "grams // 1000" in rates_text and "-(-grams // 1000)" not in rates_text
 
 
 def test_verifier_scores_unfixed_seed_below_full_reward(seeded_workspace):
     report = verify_workspace(seeded_workspace, task_id=TASK_ID)
     assert report["reward"] < 1.0
-    assert report["behavior_passed"] is False  # odd weights undercharged
+    assert report["behavior_passed"] is False 
 
 
 def test_verifier_scores_the_real_fix_plus_regression_test_at_full_reward(seeded_workspace):

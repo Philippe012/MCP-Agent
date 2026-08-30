@@ -31,9 +31,6 @@ def test_seed_workspace_contains_the_decoy_alongside_the_real_bug(seeded_workspa
 
 
 def test_editing_only_the_decoy_never_fixes_anything(seeded_workspace):
-    # A "fix" applied to the decoy instead of the real file must leave the
-    # actual bug (and reward) exactly where the unfixed seed left it - the
-    # verifier must have no way to observe the decoy at all.
     decoy = seeded_workspace / "src" / "mcp_agent_benchmark" / "legacy_search.py"
     decoy.write_text("def find_products(products, query):\n    return list(dict.fromkeys(products))\n", encoding="utf-8")
 

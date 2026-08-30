@@ -1,8 +1,3 @@
-"""Direct, fast tests of the single highest-value security property in this
-project: read_file/write_file cannot escape the workspace root. Previously
-only verified ad hoc against the live MCP server, never as a committed test.
-"""
-
 from __future__ import annotations
 
 import sys

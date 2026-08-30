@@ -1,12 +1,3 @@
-"""agents/tool_schemas.py's TOOLS and the real MCP server's tool
-definitions are two independently maintained lists with nothing enforcing
-they match - server.py could gain a new tool, or a required parameter
-could get renamed, and TOOLS would silently drift out of sync, meaning an
-agent would be given a tool schema that doesn't match what the server
-actually accepts. This connects to the real server and checks parity
-directly, rather than trusting that both were edited together.
-"""
-
 from __future__ import annotations
 
 import asyncio

@@ -13,9 +13,5 @@ def test_zero_discount_returns_exact_subtotal():
 
 
 def test_multi_item_discount_rounds_once_on_the_subtotal():
-    # Three 10-cent items, 15% off.
-    # Correct (round once on the 30-cent subtotal): 30*85=2550 -> (2550+50)//100 = 26.
-    # Buggy (round each 10-cent line separately): 10*85=850 -> (850+50)//100 = 9 per
-    # line, three lines = 27 - one cent too high.
     cart = Cart([LineItem("A", 10, 1), LineItem("B", 10, 1), LineItem("C", 10, 1)])
     assert cart.total_with_discount_cents(15) == 26

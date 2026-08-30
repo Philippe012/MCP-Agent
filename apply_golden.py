@@ -6,28 +6,19 @@ ROOT = Path(__file__).resolve().parent
 inventory_path = ROOT / "src" / "mcp_agent_benchmark" / "inventory.py"
 regression_path = ROOT / "tests" / "test_task_regression.py"
 
-# Fallback content, used only to create tests/test_task_regression.py when
-# it doesn't exist yet (e.g. a fresh, unfixed seed checkout). Kept
-# textually identical to the real committed file below it is never a
-# second, independently-maintained copy that can drift out of sync - it
-# previously did, and silently overwrote the real file on every run (see
-# CHANGELOG item 13's follow-up).
 golden_test = '''from mcp_agent_benchmark.inventory import InventoryService, Product
 
+                def test_search_multiple_fields_does_not_duplicate_product():
+                    product = Product(
+                        "X",
+                        "Red Shoe",
+                        ("sport", "red", "shoe"),
+                        1,
+                    )
 
-def test_search_multiple_fields_does_not_duplicate_product():
-    product = Product(
-        "X",
-        "Red Shoe",
-        ("sport", "red", "shoe"),
-        1,
-    )
-
-    service = InventoryService([product])
-
-    results = service.search("re")
-
-    assert [item.sku for item in results] == ["X"]'''
+                    service = InventoryService([product])
+                    results = service.search("re")
+                    assert [item.sku for item in results] == ["X"]'''
 
 
 def _search_is_already_fixed() -> bool:
@@ -49,10 +40,6 @@ def main() -> int:
 
     print("Golden solution is already applied.")
 
-    # Never overwrite an existing regression test: this is a self-check on
-    # the repo's own already-fixed reference state, not a script meant to
-    # clobber a tracked answer-key file every time it runs. Only write the
-    # fallback when the file is genuinely missing (a fresh, unfixed seed).
     if regression_path.exists():
         print("Golden regression test already present (left unmodified).")
     else:

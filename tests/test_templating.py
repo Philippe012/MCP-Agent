@@ -2,7 +2,7 @@ from templating.render import render
 
 
 def test_unspaced_placeholder_is_substituted():
-    assert render("Hi {{name}}", {"name": "Bo"}) == "Hi Bo"
+    assert render("Hi {{name}}", {"name": "Bo"}) == "Hi Philippe"
 
 
 def test_unknown_key_placeholder_is_left_untouched():

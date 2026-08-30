@@ -136,10 +136,10 @@ Measured result (one real reference episode each - see
 ## Quickstart
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
+python -m venv .venv && source .venv/bin/activate   
 pip install -r requirements.txt
-pytest -q                                            # 11 tests, no API key needed
-python verify.py                                     # scores this repo's current (already-fixed) state
+pytest -q                                            
+python verify.py                                     
 ```
 
 To run the live agents or regenerate the results table, see

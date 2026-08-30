@@ -24,7 +24,7 @@ def seeded_workspace(tmp_path):
 
 def test_seed_has_the_per_line_rounding_bug(seeded_workspace):
     text = (seeded_workspace / "src" / "pricing" / "cart.py").read_text(encoding="utf-8")
-    assert "for item in self.items" in text  # per-line loop, not a single subtotal computation
+    assert "for item in self.items" in text 
 
 
 def test_seed_workspace_contains_only_sandboxed_files(seeded_workspace):
@@ -37,11 +37,6 @@ def test_seed_workspace_contains_only_sandboxed_files(seeded_workspace):
 
 
 def test_the_pre_existing_visible_suite_already_fails_on_the_unfixed_seed(seeded_workspace):
-    # This is the task's whole point: unlike every other task in this
-    # suite, the agent doesn't have to discover a hidden bug from scratch -
-    # tests/test_pricing.py (copied in verbatim below via seed_include)
-    # already fails on the seeded buggy code, forcing a real diagnosis of
-    # *why*, not just a hidden-oracle discovery.
     report = verify_workspace(seeded_workspace, task_id=TASK_ID)
     assert report["reward"] == 0.0
     assert report["tests_passed"] is False

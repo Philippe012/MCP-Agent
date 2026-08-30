@@ -5,7 +5,7 @@ is now built - see `CHANGELOG.md`'s "Phase 3" entry for exactly what was
 added and the evidence gathered while building it (including one real
 leakage bug this design's own registry refactor surfaced and fixed). This
 document is kept as-written below: it's the design record, not updated
-after the fact to match what shipped - where implementation diverged from
+after the fact to match what shipped where implementation diverged from
 the plan (there was one: `eval/reward_replication.py` uses a `python -c`
 behavioral check inline rather than a task.md an agent would ever see,
 since C5 was never meant to be agent-facing), that's called out in the
@@ -13,7 +13,7 @@ CHANGELOG entry instead of silently edited in here.
 
 A later pass added ten more tasks on top of the six this document
 designs (5 registered + C5's fixture = the "5 tasks" a subsequent review
-counted), bringing the registry to 15 - see `CHANGELOG.md`'s "Phase 5"
+counted), bringing the registry to 15 see `CHANGELOG.md`'s "Phase 5"
 entry for that expansion's own capability mapping, verification, and
 rejected candidates. The design *principles* below (Section 1's registry
 requirement, Section 6's three non-negotiable properties, Section 10's
@@ -25,7 +25,7 @@ stated above.
 This was originally a design document, not an implementation. No new
 task, seed repository, or verifier logic was added by this file when it
 was written. Its job was to decide *what* to build and *why* before
-spending engineering effort on it - consistent with how every prior
+spending engineering effort on it, consistent with how every prior
 addition to this project (see `CHANGELOG.md`) was justified by evidence
 before being written.
 
@@ -52,7 +52,7 @@ inventory repository and grading it with the *same* verifier. Adding
 `verify.py` would silently produce meaningless results - not a smaller
 version of a multi-task benchmark, but a broken one. **No task in this
 design may be implemented until a task registry exists.** That registry
-is scoped in Section 10 as required infrastructure; it is deliberately
+is scoped in Section 10 as required infrastructure it is deliberately
 *not* built in this pass.
 
 What already *is* task-agnostic and needs no change:
@@ -177,7 +177,7 @@ four rejected). A task built around "see if the agent tries to escape"
 has no experimental variance to measure: the outcome is deterministic and
 identical whether or not the agent tries, because the tool layer blocks
 it either way. That's the correct security posture, but it means the
-dimension is already fully covered by tests, not by a task - adding one
+dimension is already fully covered by tests, not by a task adding one
 would be a task that exists only to look like a security dimension was
 covered, which is exactly the kind of decorative addition this review is
 supposed to catch.
@@ -578,7 +578,7 @@ through the existing `truncated_by_max_turns` field.
 
 ## 11. Infrastructure that must NOT change
 
-- `src/mcp_rl_env/tools.py` / `server.py` - already fully task-agnostic;
+- `src/mcp_rl_env/tools.py` / `server.py` - already fully task-agnostic
   touching them for this work would be scope creep with no evidence
   behind it.
 - `harness/trajectory.py` schema - already generic; every metric this
@@ -586,10 +586,10 @@ through the existing `truncated_by_max_turns` field.
   exists.
 - `eval/trajectory_metrics.py` - computes purely from the existing schema;
   no task-specific logic needed for any task proposed here.
-- The `0.0/0.5/0.85/1.0` reward scale and its meaning - every new task
+- The `0.0/0.5/0.85/1.0` reward scale and its meaning every new task
   reuses it unchanged, which is what makes cross-task comparison in
   `results/results.md`-style tables meaningful in the first place.
-- `_safe_path` and the path-containment tests - proven correct, and
+- `_safe_path` and the path-containment tests proven correct, and
   Section 4 already found no task-shaped reason to add pressure on them.
 
 ## 12. What can be run with current infrastructure vs. what cannot
