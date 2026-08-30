@@ -5,6 +5,23 @@ advanced) that measure a real, common agent failure mode: **treating a
 green test run as proof a task is finished, when the existing tests never
 covered the new requirement in the first place.**
 
+This is a **software-engineering benchmark for tool-using coding
+agents** - not a general-intelligence benchmark, and not tied to any
+industry or domain. Every task is a small, realistic Python bugfix ticket
+graded by a deterministic verifier, over a real MCP (Model Context
+Protocol) tool server.
+
+**Where to find the evidence for each part of the hackathon rubric:**
+
+| Criterion | Weight | Where |
+|---|---|---|
+| Problem & User Value | 15% | "Who this is for" below |
+| Agent Solution & Engineering | 30% | "Architecture", "The 15 tasks", `harness/`, `agents/` |
+| End-to-End Quality | 20% | 134/134 tests passing, `python verify.py` → `REWARD=1.00`, a real MCP stdio server (nothing mocked) |
+| Measured Improvement | 15% | "Baseline vs. advanced", [results/results.md](results/results.md) |
+| Reproducibility | 15% | "Quickstart" below, [REPRODUCE.md](REPRODUCE.md) - exact commands, versions, runtime |
+| Hot Take / Insights | 5% | "Main failure mode and hot take" |
+
 ## Who this is for, and the bottleneck it addresses
 
 The intended user is anyone evaluating or deploying a coding agent on
@@ -89,41 +106,55 @@ explaining why the call was made. This is deliberately observable
 behavior only - nothing about the model's hidden reasoning is recorded or
 claimed.
 
-## Task suite
+## The 15 tasks
 
-`harness/task_registry.py` registers 15 tasks across 12 independent
-domains (inventory, contacts, a ledger, a room-booking calendar, a config
-loader, a batch processor, an LRU cache, a template renderer, a shopping
-cart, a notes app, a shipping-rate calculator, and a dependency resolver) -
-see [TASK_SUITE_DESIGN.md](TASK_SUITE_DESIGN.md) for the original 6-task
-design review and [CHANGELOG.md](CHANGELOG.md)'s "Phase 5" entry for the
-expansion to 15, including every candidate considered and rejected.
+`harness/task_registry.py` registers exactly 15 tasks. Every one shares
+three non-negotiable properties (see [TASK_SUITE_DESIGN.md](TASK_SUITE_DESIGN.md)
+§6): the agent's workspace never contains `verify.py`, `golden/`, or
+another task's answer material; the deterministic verifier always checks
+at least one behavioral property the visible test suite could not have
+caught on its own; and every agent-facing task ships a real,
+independently-verified golden fix.
 
-**14 of the 15 are agent-facing bugfix tasks**, each with its own
-`golden/<task_id>/solution.patch` and `tests/test_task_<task_id>.py`
-harness test, sharing the same non-negotiable properties: the agent's
-workspace never contains `verify.py`, `golden/`, or another task's answer
-material; the deterministic verifier always checks at least one
-behavioral property the visible test suite could not have caught; and
-every one ships a real, independently-verified golden fix. **The 15th,
-`edge_case_coverage`, is deliberately not agent-facing** - its own
-`task.md` says so explicitly - and exists solely as a second fixture for
-`eval/reward_replication.py`, replicating the flagship reward-hacking
-finding (below) on a different requirement and a different buggy seed
-than `bugfix_inventory`'s, reusing the same registry and mutation-testing
-machinery rather than a hand-rolled second copy of it. It is real,
-reproducible infrastructure (`python -m eval.reward_replication`), not
-filler added to inflate the task count to 15 - see TASK_SUITE_DESIGN.md's
-"C5" for exactly why it exists and why it is scoped this way.
+These are **not 15 independent statistical experiments** - they are one
+development set (12 tasks, iterated on freely), two held-out
+generalization checks (never referenced while building the other tasks),
+and one non-agent evaluator fixture. The category column below says which
+is which.
 
-Two tasks are deliberately held out (`generalization_contact_index`,
-`notes_tag_rename_generalization`): never referenced while iterating on
-prompts or the other tasks, used only to measure whether a policy
-transfers to an unseen domain or was tuned to the domains it was developed
-against. They test two different transferred capabilities (multi-field
-deduplication, and exact-vs-substring matching under an existing-test
-self-correction trap) in two different unseen domains, rather than
-repeating the same held-out check twice.
+| Task | Domain | Capability tested | Category |
+|---|---|---|---|
+| `bugfix_inventory` | inventory | multi-field match deduplication | development - hosts the flagship reward-hacking finding |
+| `bugfix_restock_exact_match` | inventory | exact-match vs. fuzzy-match reasoning + self-correction | development |
+| `decoy_context_efficiency` | inventory | verify-before-edit discipline (a plausible decoy file) | development |
+| `ledger_transfer_rollback` | banking ledger | atomicity: a failed transfer must not partially mutate state | development |
+| `calendar_booking_overlap` | room booking | boundary reasoning (touching vs. overlapping intervals) | development |
+| `config_loader_backward_compat` | config parsing | backward compatibility (old + new data shapes) | development |
+| `batch_partial_failure_recovery` | batch processing | partial-failure state consistency | development |
+| `lru_cache_eviction_invariant` | caching | recency-order invariant under eviction | development |
+| `template_render_decoy` | templating | decoy discipline, in a second domain from `decoy_context_efficiency` | development |
+| `pricing_discount_rounding` | shopping cart | self-correction after a pre-existing visible test already fails | development |
+| `shipping_quote_root_cause` | shipping rates | multi-file root-cause tracing | development |
+| `dependency_resolver_cycle_detection` | build graphs | cycle detection + valid-order invariant | development |
+| `generalization_contact_index` | contacts | transfer: multi-field dedup in an unseen domain | **held-out generalization** |
+| `notes_tag_rename_generalization` | notes/tags | transfer: exact-vs-substring matching in an unseen domain | **held-out generalization** |
+| `edge_case_coverage` | inventory | empty-input handling | **evaluator fixture, not agent-facing** - see below |
+
+`edge_case_coverage` is the one exception to "agent-facing": its own
+`task.md` says explicitly that it is never shown to a live agent. It
+exists solely as a second fixture for `eval/reward_replication.py`,
+replicating the flagship reward-hacking finding (below) on a different
+requirement and a different buggy seed than `bugfix_inventory`'s, reusing
+the same registry and mutation-testing machinery rather than a hand-rolled
+second copy of it - real, reproducible infrastructure
+(`python -m eval.reward_replication`), not a count-inflating filler task.
+See TASK_SUITE_DESIGN.md's "C5" for why it exists and is scoped this way.
+
+The two held-out tasks are never referenced while iterating on prompts or
+the other 12 development tasks, and are run only to check whether a policy transfers
+to an unseen domain or was tuned to the domains it was developed against -
+see CHANGELOG's "Phase 5" for the full expansion, every candidate
+considered, and why each was accepted or rejected.
 
 ## Baseline vs. advanced
 
@@ -250,12 +281,18 @@ thread is that a check which cannot fail is not a check.
   this build, because this sandbox has no `ANTHROPIC_API_KEY`.
 - **One recovered failure is not a recovery-rate claim.** `manual-recovery-01`
   shows the advanced protocol *can* recover from a real tool error; it
-  says nothing about how often it would, which needs the N-episode
-  automated harness plus deliberately varied failure conditions to answer
-  (see CHANGELOG's "considered and not built: fault injection").
-- **Single task instance.** Both policies are compared on one bugfix task.
-  See CHANGELOG's "considered and not built: task variants" for why
-  generalization wasn't tested here.
+  says nothing about how often it would. `harness/fault_injection.py`
+  (added in Phase 3, see CHANGELOG) can now deterministically force a
+  chosen tool to fail on a chosen call, but no N-episode run under that
+  condition has been executed yet - that still needs a live
+  `ANTHROPIC_API_KEY` and is not simulated here.
+- **The measured baseline-vs-advanced comparison uses one task instance
+  (`bugfix_inventory`).** The registry supports all 15 tasks and
+  `eval/run_experiment.py --task-id <id>` can run a real episode against
+  any of them (see REPRODUCE.md), but no live episode has been recorded
+  yet for the other 14 - the 0.85-vs-1.00 gap above is evidence for that
+  one task's mechanism, not a claim that the gap holds at the same size
+  everywhere.
 - **The regression-test verifier has a second, unfixed exploit shape.**
   The mutation-testing fix (this project's own hot take, above) closes the
   *lexical-presence* gap (a test that asserts nothing) but not a
@@ -269,8 +306,14 @@ thread is that a check which cannot fail is not a check.
 
 ## What was deliberately not built, and why
 
-Multi-agent orchestration, a configurable fault-injection layer, and a set
-of task/environment variants were all considered and explicitly rejected
-for this submission - each for a specific evidence-based reason, not
-because they were out of scope in the abstract. See the "Considered and
-not built" entries at the end of [CHANGELOG.md](CHANGELOG.md).
+Two of the three things an early pass in this project's history rejected
+were later built anyway, once there was a concrete reason to: a
+deterministic fault-injection wrapper (`harness/fault_injection.py`,
+CHANGELOG "Phase 3") and a real 15-task suite in place of the original
+single task (CHANGELOG "Phase 3" and "Phase 5"). Only **multi-agent
+orchestration** remains genuinely not built - no task in this suite has
+shown a bottleneck (role confusion, context limits) that splitting the
+single agent loop into multiple roles would fix, and adding it without
+that evidence would be exactly the decorative complexity this project
+argues against. See CHANGELOG's "Considered and not built" entries for
+the original reasoning and the later phases for what changed since.
