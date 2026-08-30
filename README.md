@@ -11,6 +11,18 @@ industry or domain. Every task is a small, realistic Python bugfix ticket
 graded by a deterministic verifier, over a real MCP (Model Context
 Protocol) tool server.
 
+## Why this benchmark is different
+
+Most coding-agent evaluations ask whether the final code passes tests.
+ReliableMCP asks a harder question: **did the agent actually satisfy the
+requirement, and can the evaluator prove that the check itself is
+meaningful?**
+
+The benchmark therefore evaluates both the agent and the evaluation
+process: isolated buggy tasks, behavioral verification, regression-test
+validation, trajectory-level evidence, and controlled reward-hacking
+experiments.
+
 **Where to find the evidence for each part of the hackathon rubric:**
 
 | Criterion | Weight | Where |
@@ -18,7 +30,7 @@ Protocol) tool server.
 | Problem & User Value | 15% | "Who this is for" below |
 | Agent Solution & Engineering | 30% | "Architecture", "The 15 tasks", `harness/`, `agents/` |
 | End-to-End Quality | 20% | 134/134 tests passing, `python verify.py` → `REWARD=1.00`, a real MCP stdio server (nothing mocked) |
-| Measured Improvement | 15% | "Baseline vs. advanced", [results/results.md](results/results.md) |
+| Measured Improvement | 15% | "Baseline vs. advanced" below - **N=1 real reference episode per policy**, not a statistical sample (see [results/results.md](results/results.md) and Limitations) |
 | Reproducibility | 15% | "Quickstart" below, [REPRODUCE.md](REPRODUCE.md) - exact commands, versions, runtime |
 | Hot Take / Insights | 5% | "Main failure mode and hot take" |
 
@@ -159,7 +171,8 @@ considered, and why each was accepted or rejected.
 ## Baseline vs. advanced
 
 Both policies see the same task, the same tools, and the same seeded bug.
-They differ only in *policy*:
+They use the same environment and tools but follow different completion
+policies:
 
 | | Baseline | Advanced |
 |---|---|---|
@@ -168,13 +181,16 @@ They differ only in *policy*:
 | Tool-failure guidance | none | diagnose from tool output, retry with a corrected approach |
 | Human-approval checkpoint | none | one, before the episode is allowed to finish |
 
-Measured result (one real reference episode each - see
-[results/results.md](results/results.md) for the full table and mechanism):
+**Measured result - N=1 real reference episode per policy** (a
+mechanism-level comparison, not a statistical sample; see
+[results/results.md](results/results.md) for the full table and
+mechanism, and "Limitations" below for what this does and doesn't show):
 
 | | Baseline | Advanced |
 |---|---|---|
 | Reward | **0.85** | **1.00** |
 | Regression test added | no | yes |
+| Episodes measured | 1 | 1 |
 
 ## Quickstart
 
