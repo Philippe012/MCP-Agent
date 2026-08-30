@@ -4,7 +4,7 @@ class LRUCache:
             raise ValueError("capacity must be positive")
         self.capacity = capacity
         self._data: dict = {}
-        self._order: list = []  # least-recently-used first
+        self._order: list = []
 
     def _touch(self, key) -> None:
         if key in self._order:
@@ -14,9 +14,7 @@ class LRUCache:
     def get(self, key):
         if key not in self._data:
             return None
-        # BUG: reading a key doesn't refresh its recency, so a key that was
-        # just read can still be evicted next, as if it had never been
-        # touched.
+        
         return self._data[key]
 
     def put(self, key, value) -> None:

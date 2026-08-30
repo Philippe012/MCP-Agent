@@ -16,8 +16,6 @@ class NoteStore:
         return [n for n in self.notes if any(query in t for t in n.tags)]
 
     def rename_tag(self, old: str, new: str) -> int:
-        # BUG: matches tags by substring instead of exact value, so
-        # renaming "work" also renames "workshop" and "homework".
         changed = 0
         updated = []
         for note in self.notes:

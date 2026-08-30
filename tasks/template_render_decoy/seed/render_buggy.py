@@ -12,9 +12,7 @@ def render(template: str, context: dict) -> str:
         if end == -1:
             out.append(template[start:])
             break
-        # BUG: the key is not stripped of surrounding whitespace, so
-        # "{{ name }}" produces the key " name " which never matches
-        # context["name"] - only the unspaced "{{name}}" form works.
+        
         key = template[start + 2:end]
         if key in context:
             out.append(str(context[key]))

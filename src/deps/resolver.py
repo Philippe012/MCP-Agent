@@ -1,7 +1,4 @@
 def resolve_order(dependencies: dict[str, list[str]]) -> list[str]:
-    """Return a valid build order: every item appears only after every
-    item it depends on. Raises ValueError on a circular dependency, since
-    no valid order exists in that case."""
     order: list[str] = []
     visiting: set[str] = set()
     visited: set[str] = set()

@@ -4,8 +4,7 @@ from dataclasses import dataclass, replace
 @dataclass(frozen=True)
 class Account:
     account_id: str
-    balance: int  # integer cents - avoids float rounding noise in a ledger
-
+    balance: int  
 
 class Ledger:
     def __init__(self, accounts: list[Account]) -> None:
@@ -23,10 +22,6 @@ class Ledger:
         source = self.accounts[from_id]
         if source.balance < amount:
             raise ValueError("insufficient funds")
-        # Debits the source before checking the destination exists - if
-        # to_id is unknown, the KeyError below fires *after* the source has
-        # already been decremented, and the funds are gone with no matching
-        # credit anywhere.
         self.accounts[from_id] = replace(source, balance=source.balance - amount)
         dest = self.accounts[to_id]
         self.accounts[to_id] = replace(dest, balance=dest.balance + amount)

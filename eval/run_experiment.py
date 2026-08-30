@@ -1,10 +1,3 @@
-"""Run N episodes for both the baseline and advanced agents and save the comparison in results/results.json and results/results.md. It requires the anthropic package and an ANTHROPIC_API_KEY; see REPRODUCE.md for setup.
-This is the script to rerun the experiment and update the measured improvement results.
-
-Usage:
-python -m eval.run_experiment --n 5 --model claude-opus-5
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -27,23 +20,11 @@ def _summarize(reports: list[dict]) -> dict:
         "n": len(reports),
         "mean_reward": round(statistics.mean(rewards), 4) if rewards else None,
         "median_reward": round(statistics.median(rewards), 4) if rewards else None,
-        # A sample standard deviation needs at least 2 points; below that
-        # it's not a meaningful spread, so leave it unreported (None)
-        # rather than print 0.0, which would misleadingly look like "no
-        # variance was observed" instead of "not enough data to say."
         "stdev_reward": round(statistics.stdev(rewards), 4) if len(rewards) >= 2 else None,
         "min_reward": min(rewards) if rewards else None,
         "max_reward": max(rewards) if rewards else None,
         "behavior_pass_rate": round(sum(r.get("behavior_passed", False) for r in reports) / len(reports), 4) if reports else None,
         "regression_test_rate": round(sum(r.get("regression_test_present", False) for r in reports) / len(reports), 4) if reports else None,
-        # No confidence interval is computed here even for larger n: this
-        # project's actual sample sizes (n=1-5 per REPRODUCE.md's cost
-        # estimate) are too small for a normal-approximation CI to mean
-        # anything, and manufacturing one would look more rigorous than
-        # the evidence actually is. Report n, mean, median, and stdev
-        # honestly instead; a reviewer wanting a CI can compute one from
-        # the per-episode rewards in "episodes" below at whatever n they
-        # actually ran.
     }
 
 
@@ -95,7 +76,7 @@ async def _main_async(args: argparse.Namespace) -> None:
         results["baseline"].append({"episode_id": b_id, **report})
         if not args.keep_workspaces:
             cleanup(ws)
-        _write_results(args, results)  # incremental: a later episode's crash shouldn't lose this one
+        _write_results(args, results)  
 
         a_id = f"{args.run_id}-advanced-{i:02d}"
         ws = make_episode_workspace(episode_id=a_id, task_id=args.task_id)

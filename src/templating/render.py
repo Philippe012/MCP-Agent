@@ -1,11 +1,5 @@
 def render(template: str, context: dict) -> str:
-    """Replace every {{ key }} placeholder with str(context[key]).
 
-    Whitespace around the key inside the braces is allowed and ignored
-    (`{{name}}` and `{{ name }}` are equivalent). A placeholder naming a
-    key not present in context is left untouched in the output - that is
-    documented, intentional behavior, not a bug.
-    """
     out = []
     i = 0
     n = len(template)

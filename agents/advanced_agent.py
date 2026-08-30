@@ -1,14 +1,3 @@
-"""Advanced agent: structured plan -> implement -> verify -> checklist ->
-approval policy.
-
-Automates the exact protocol the manually-driven reference episode in
-trajectories/advanced/ followed (see trajectories/README.md): read the
-task and the existing tests, form an explicit plan against every numbered
-requirement, implement, run the tests, re-check the diff against the full
-requirements list (not just "did pytest exit 0"), and pass through a
-human-approval checkpoint before the episode is allowed to finish.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +7,7 @@ from pathlib import Path
 from agents.loop import DEFAULT_MODEL, run_agent_episode
 from harness.task_registry import DEFAULT_TASK_ID
 from harness.workspace import make_episode_workspace
+from harness.task_registry import get_task
 
 SYSTEM_PROMPT = """You are a coding agent working in a small software repository.
 You have tools to list files, read files, search code, write files, run the
@@ -76,8 +66,6 @@ if __name__ == "__main__":
     ap.add_argument("--out-dir", default="trajectories/advanced")
     ap.add_argument("--interactive-approval", action="store_true")
     args = ap.parse_args()
-
-    from harness.task_registry import get_task
 
     task_file = args.task_file or get_task(args.task_id).task_file
     ws = make_episode_workspace(episode_id=args.episode, task_id=args.task_id)

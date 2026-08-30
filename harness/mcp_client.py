@@ -11,23 +11,13 @@ from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-
-# The project already hit one real stdio deadlock (CHANGELOG item 3) - a
-# hard timeout here means a future hang fails fast instead of blocking the
-# harness indefinitely again.
 MCP_CALL_TIMEOUT_S = 30
 
 
 class MCPToolError(RuntimeError):
-    """A tool call reached the real MCP server and the server reported a
-    genuine failure (result.isError) - e.g. a path escaping the sandbox, a
-    file that doesn't exist. Callers that want to treat "the environment
-    failed" as meaningful signal (recovery-rate metrics, retry logic)
-    should catch this specifically, not a bare Exception - anything else
-    (a transport error, a bug in this client) is a harness problem and
-    should propagate and crash loudly instead of being recorded as if the
-    agent had encountered a normal tool failure."""
-
+    """Raised when the MCP server reports a genuine tool failure.
+    Callers can catch this for recovery metrics or retry logic.
+    Other errors should propagate as harness failures."""
 
 class MCPToolSession:
     def __init__(self, workspace: Path):

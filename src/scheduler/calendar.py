@@ -13,9 +13,6 @@ class Calendar:
         self.bookings: list[Booking] = list(bookings or [])
 
     def _overlaps(self, room: str, start: int, end: int) -> bool:
-        # Half-open interval overlap: two bookings conflict only if they
-        # share an interior minute. Touching at a boundary (one ends
-        # exactly when the other starts) is NOT a conflict.
         for b in self.bookings:
             if b.room != room:
                 continue

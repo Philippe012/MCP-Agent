@@ -1,10 +1,3 @@
-"""Anthropic tool-use schemas for the six MCP tools.
-
-Defined manually so the agent loop does not depend on FastMCP's tool
-descriptions. tests/test_tool_schema_parity.py checks these stay in sync
-with what the real MCP server actually exposes.
-"""
-
 TOOLS = [
     {
         "name": "list_files",
