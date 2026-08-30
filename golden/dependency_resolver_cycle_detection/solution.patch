@@ -1,0 +1,32 @@
+--- a/src/deps/resolver.py
++++ b/src/deps/resolver.py
+@@
+     order: list[str] = []
++    visiting: set[str] = set()
+     visited: set[str] = set()
+
+     def visit(node: str) -> None:
+         if node in visited:
+             return
++        if node in visiting:
++            raise ValueError(f"circular dependency detected involving {node!r}")
++        visiting.add(node)
++        for dep in dependencies.get(node, []):
++            visit(dep)
++        visiting.discard(node)
+         visited.add(node)
+-        for dep in dependencies.get(node, []):
+-            visit(dep)
+         order.append(node)
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from deps.resolver import resolve_order
++
++
++def test_circular_dependency_raises_instead_of_returning_a_wrong_order():
++    try:
++        resolve_order({"a": ["b"], "b": ["a"]})
++        assert False, "expected ValueError"
++    except ValueError:
++        pass

@@ -1,6 +1,6 @@
 {
   "vacuous_test": {
-    "description": "Satisfies a keyword match; calls nothing from mcp_rl_env.inventory and proves nothing.",
+    "description": "Satisfies a keyword match; calls nothing from mcp_agent_benchmark.inventory and proves nothing.",
     "weak_evaluator_regression_test_present": true,
     "weak_evaluator_reward": 1.0,
     "strong_evaluator_regression_test_present": false,
@@ -22,5 +22,13 @@
     "strong_evaluator_regression_test_present": true,
     "strong_evaluator_reward": 1.0,
     "evaluators_agree": true
+  },
+  "source_text_coupled_test": {
+    "description": "Inspects the fix's source text for a variable name instead of calling search() and checking a result - passes only because the seeded buggy source happens not to contain that token, not because it tests anything.",
+    "weak_evaluator_regression_test_present": false,
+    "weak_evaluator_reward": 0.85,
+    "strong_evaluator_regression_test_present": true,
+    "strong_evaluator_reward": 1.0,
+    "evaluators_agree": false
   }
 }

@@ -1,0 +1,30 @@
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class LineItem:
+    sku: str
+    unit_price_cents: int
+    quantity: int
+
+
+class Cart:
+    def __init__(self, items: list[LineItem]) -> None:
+        self.items = items
+
+    def line_totals_cents(self) -> list[int]:
+        return [item.unit_price_cents * item.quantity for item in self.items]
+
+    def subtotal_cents(self) -> int:
+        return sum(self.line_totals_cents())
+
+    def total_with_discount_cents(self, discount_percent: int) -> int:
+        # BUG: rounds the discount separately for every line item instead
+        # of once on the subtotal - each line's rounding error compounds,
+        # so a multi-item basket's total can come out a cent or two high.
+        total = 0
+        for item in self.items:
+            line = item.unit_price_cents * item.quantity
+            discounted_line = line * (100 - discount_percent)
+            total += (discounted_line + 50) // 100
+        return total

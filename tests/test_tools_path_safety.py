@@ -14,7 +14,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import pytest
 
-from mcp_rl_env import tools
+from mcp_agent_benchmark import tools
 
 
 @pytest.fixture

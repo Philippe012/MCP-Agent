@@ -44,10 +44,22 @@ its `model` field:
 
 Both kinds share one property that matters for grading: the **tool
 implementations, the seeded bug, and the deterministic verifier are
-identical** in both cases (`src/mcp_rl_env/tools.py`, `seed/`, and
+identical** in both cases (`src/mcp_agent_benchmark/tools.py`, `seed/`, and
 `verify.py` respectively) - only the thing deciding *which* tool to call
 next differs (a human-driven Claude Code turn vs. an unattended API loop).
 A reward number means the same thing regardless of which produced it.
+
+**A note on package names in the transcripts below:** the three manual
+episodes were recorded while the sandboxed application package was still
+named `mcp_rl_env`; it was later renamed to `mcp_agent_benchmark` (a
+cosmetic housekeeping change, not a behavioral one - see CHANGELOG's
+rename entry) after these trajectories were committed. The `.md`/`.json`
+files below are left exactly as recorded - editing an evidentiary
+transcript after the fact to match a later rename would misrepresent what
+the agent actually saw and did. Every current path, import, and command in
+this README and elsewhere in the repo uses the current name;
+`src/mcp_rl_env/...` appearing inside a trajectory transcript is expected
+and correct for that historical record, not a leftover bug.
 
 ## Reading a trajectory
 

@@ -1,0 +1,19 @@
+--- a/src/shipping/rates.py
++++ b/src/shipping/rates.py
+@@
+ def round_up_kg(grams: int) -> int:
+     if grams <= 0:
+         return 0
+-    return grams // 1000
++    return -(-grams // 1000)
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from shipping.quote import quote_cents
++
++
++def test_odd_weight_is_billed_at_the_next_full_kilogram():
++    assert quote_cents("standard", 1500) == 800
+
+Note: quote.py (the file whose output looks wrong) is unchanged by this
+patch - the actual bug lives one call away, in rates.py.

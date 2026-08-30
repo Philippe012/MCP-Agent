@@ -1,4 +1,4 @@
-from mcp_rl_env.inventory import InventoryService, Product
+from mcp_agent_benchmark.inventory import InventoryService, Product
 
 
 def test_search_multiple_fields_does_not_duplicate_product():

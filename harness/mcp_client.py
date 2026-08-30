@@ -39,9 +39,9 @@ class MCPToolSession:
         self._stack = AsyncExitStack()
         params = StdioServerParameters(
             command=sys.executable,
-            args=["-m", "mcp_rl_env.server"],
+            args=["-m", "mcp_agent_benchmark.server"],
             cwd=str(REPO_ROOT),
-            env={"MCP_RL_ENV_ROOT": str(self.workspace), "PYTHONPATH": str(REPO_ROOT / "src")},
+            env={"MCP_AGENT_BENCHMARK_ROOT": str(self.workspace), "PYTHONPATH": str(REPO_ROOT / "src")},
         )
         read, write = await self._stack.enter_async_context(stdio_client(params))
         self.session = await self._stack.enter_async_context(ClientSession(read, write))

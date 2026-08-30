@@ -29,7 +29,7 @@ def test_seed_workspace_contains_only_sandboxed_files(seeded_workspace):
     assert "tests/test_contact_index.py" in names
     assert "tests/test_task_regression.py" not in names
     assert not any("golden" in n for n in names)
-    assert not any("mcp_rl_env" in n for n in names)  # a genuinely separate domain, not a relabeled inventory task
+    assert not any("mcp_agent_benchmark" in n for n in names)  # a genuinely separate domain, not a relabeled inventory task
 
 
 def test_seed_workspace_has_the_dedup_bug(seeded_workspace):

@@ -1,0 +1,28 @@
+--- a/src/batch/processor.py
++++ b/src/batch/processor.py
+@@
+     succeeded = []
+     failed = []
+     for item in items:
+-        succeeded.append(worker(item))
++        try:
++            succeeded.append(worker(item))
++        except Exception as exc:
++            failed.append((item, str(exc)))
+     return BatchResult(succeeded=succeeded, failed=failed)
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from batch.processor import process_batch
++
++
++def test_a_failing_item_does_not_abort_the_rest_of_the_batch():
++    def worker(x):
++        if x == 2:
++            raise ValueError("boom")
++        return x * 10
++
++    result = process_batch([1, 2, 3], worker)
++    assert result.succeeded == [10, 30]
++    assert len(result.failed) == 1
++    assert result.failed[0][0] == 2

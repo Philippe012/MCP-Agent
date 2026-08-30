@@ -1,6 +1,6 @@
 {
   "vacuous_test": {
-    "description": "Satisfies the weak check by name and keyword; calls nothing from mcp_rl_env.inventory.",
+    "description": "Satisfies the weak check by name and keyword; calls nothing from mcp_agent_benchmark.inventory.",
     "weak_evaluator_regression_test_present": true,
     "weak_evaluator_reward": 1.0,
     "strong_evaluator_regression_test_present": false,

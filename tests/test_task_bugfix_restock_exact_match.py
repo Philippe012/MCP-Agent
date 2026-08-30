@@ -23,13 +23,13 @@ def seeded_workspace(tmp_path):
 
 
 def test_seed_has_the_substring_matching_bug(seeded_workspace):
-    text = (seeded_workspace / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8")
+    text = (seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py").read_text(encoding="utf-8")
     assert "sku in p.sku" in text  # the buggy comparison, not the fixed `p.sku == sku`
 
 
 def test_seed_workspace_contains_only_sandboxed_files(seeded_workspace):
     names = {p.relative_to(seeded_workspace).as_posix() for p in seeded_workspace.rglob("*") if p.is_file()}
-    assert "src/mcp_rl_env/inventory.py" in names
+    assert "src/mcp_agent_benchmark/inventory.py" in names
     assert "tasks/bugfix_restock_exact_match/task.md" in names
     assert not any(n.startswith("tasks/") and n != "tasks/bugfix_restock_exact_match/task.md" for n in names)
     assert "tests/test_task_regression.py" not in names
@@ -43,8 +43,8 @@ def test_verifier_scores_unfixed_seed_below_full_reward(seeded_workspace):
 
 
 def test_verifier_scores_the_real_fix_plus_regression_test_at_full_reward(seeded_workspace):
-    fixed = (REPO_ROOT / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8")
-    (seeded_workspace / "src" / "mcp_rl_env" / "inventory.py").write_text(fixed, encoding="utf-8")
+    fixed = (REPO_ROOT / "src" / "mcp_agent_benchmark" / "inventory.py").read_text(encoding="utf-8")
+    (seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py").write_text(fixed, encoding="utf-8")
 
     regression = seeded_workspace / "tests" / "test_task_regression.py"
     regression.write_text(
@@ -58,8 +58,8 @@ def test_verifier_scores_the_real_fix_plus_regression_test_at_full_reward(seeded
 
 
 def test_verifier_rejects_a_vacuous_regression_test(seeded_workspace):
-    fixed = (REPO_ROOT / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8")
-    (seeded_workspace / "src" / "mcp_rl_env" / "inventory.py").write_text(fixed, encoding="utf-8")
+    fixed = (REPO_ROOT / "src" / "mcp_agent_benchmark" / "inventory.py").read_text(encoding="utf-8")
+    (seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py").write_text(fixed, encoding="utf-8")
 
     regression = seeded_workspace / "tests" / "test_task_regression.py"
     regression.write_text("def test_restock():\n    assert True\n", encoding="utf-8")
@@ -101,7 +101,7 @@ class InventoryService:
             return list(self.products)
         return [p for p in self.products if query == p.name.lower()]
 """
-    (seeded_workspace / "src" / "mcp_rl_env" / "inventory.py").write_text(over_generalized, encoding="utf-8")
+    (seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py").write_text(over_generalized, encoding="utf-8")
 
     report = verify_workspace(seeded_workspace, task_id=TASK_ID)
     assert report["tests_passed"] is False  # tests/test_inventory.py::test_search_by_name regresses

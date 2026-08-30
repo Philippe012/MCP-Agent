@@ -1,5 +1,5 @@
---- a/src/mcp_rl_env/inventory.py
-+++ b/src/mcp_rl_env/inventory.py
+--- a/src/mcp_agent_benchmark/inventory.py
++++ b/src/mcp_agent_benchmark/inventory.py
 @@
      def restock(self, sku: str, qty: int) -> None:
 -        self.products = [
@@ -13,7 +13,7 @@
 --- /dev/null
 +++ b/tests/test_task_regression.py
 @@
-+from mcp_rl_env.inventory import InventoryService, Product
++from mcp_agent_benchmark.inventory import InventoryService, Product
 +
 +
 +def test_restock_only_affects_the_exact_sku():

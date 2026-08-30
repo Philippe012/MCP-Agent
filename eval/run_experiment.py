@@ -26,10 +26,24 @@ def _summarize(reports: list[dict]) -> dict:
     return {
         "n": len(reports),
         "mean_reward": round(statistics.mean(rewards), 4) if rewards else None,
+        "median_reward": round(statistics.median(rewards), 4) if rewards else None,
+        # A sample standard deviation needs at least 2 points; below that
+        # it's not a meaningful spread, so leave it unreported (None)
+        # rather than print 0.0, which would misleadingly look like "no
+        # variance was observed" instead of "not enough data to say."
+        "stdev_reward": round(statistics.stdev(rewards), 4) if len(rewards) >= 2 else None,
         "min_reward": min(rewards) if rewards else None,
         "max_reward": max(rewards) if rewards else None,
         "behavior_pass_rate": round(sum(r.get("behavior_passed", False) for r in reports) / len(reports), 4) if reports else None,
         "regression_test_rate": round(sum(r.get("regression_test_present", False) for r in reports) / len(reports), 4) if reports else None,
+        # No confidence interval is computed here even for larger n: this
+        # project's actual sample sizes (n=1-5 per REPRODUCE.md's cost
+        # estimate) are too small for a normal-approximation CI to mean
+        # anything, and manufacturing one would look more rigorous than
+        # the evidence actually is. Report n, mean, median, and stdev
+        # honestly instead; a reviewer wanting a CI can compute one from
+        # the per-episode rewards in "episodes" below at whatever n they
+        # actually ran.
     }
 
 
@@ -41,9 +55,29 @@ def _write_results(args: argparse.Namespace, results: dict[str, list[dict]]) -> 
     out_dir.mkdir(exist_ok=True)
     (out_dir / "results.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
 
-    md = ["# Automated experiment results", "", f"Run: `{args.run_id}`, model `{args.model}`, {args.n} episodes per agent.", "", "| Agent | Mean reward | Behavior pass rate | Regression test rate |", "|---|---|---|---|"]
+    md = [
+        "# Automated experiment results",
+        "",
+        f"Run: `{args.run_id}`, model `{args.model}`, {args.n} episodes per agent.",
+        "",
+        "| Agent | N | Mean reward | Median reward | Stdev reward | Min | Max | Behavior pass rate | Regression test rate |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
     for agent, s in summary.items():
-        md.append(f"| {agent} | {s['mean_reward']} | {s['behavior_pass_rate']} | {s['regression_test_rate']} |")
+        md.append(
+            f"| {agent} | {s['n']} | {s['mean_reward']} | {s['median_reward']} | {s['stdev_reward']} | "
+            f"{s['min_reward']} | {s['max_reward']} | {s['behavior_pass_rate']} | {s['regression_test_rate']} |"
+        )
+    if args.n < 5:
+        md += [
+            "",
+            f"**N={args.n} per agent is a small sample** - treat these numbers as "
+            "preliminary/mechanistic evidence, not a statistically powered claim. "
+            "See RESEARCH.md and results/results.md for how this project "
+            "distinguishes a deterministic-mechanism finding (no sampling "
+            "variance, repeated runs add no information) from a genuinely "
+            "stochastic one like this (LLM sampling variance, where N matters).",
+        ]
     (out_dir / "results.md").write_text("\n".join(md) + "\n", encoding="utf-8")
 
 

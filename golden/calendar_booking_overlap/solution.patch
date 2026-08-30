@@ -1,0 +1,21 @@
+--- a/src/scheduler/calendar.py
++++ b/src/scheduler/calendar.py
+@@
+         for b in self.bookings:
+             if b.room != room:
+                 continue
+-            if start <= b.end and b.start <= end:
++            if start < b.end and b.start < end:
+                 return True
+         return False
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from scheduler.calendar import Calendar
++
++
++def test_back_to_back_bookings_are_both_accepted():
++    cal = Calendar()
++    cal.book("R1", 540, 600)
++    cal.book("R1", 600, 660)
++    assert len(cal.bookings) == 2

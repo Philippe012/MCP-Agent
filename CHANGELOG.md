@@ -828,3 +828,338 @@ resource-budget condition (Section 8) needed no new code (`max_turns`
 already existed); it's exercised by choice of CLI arguments, not a new
 mechanism, so there's nothing to add here beyond what's already true of
 `run_agent_episode`.
+
+## Phase 4 - Final research-quality gate: the package rename was half-finished and broke the documented reproduction path
+
+**Evidence:** running this project's own documented reproduction steps
+from a genuinely clean checkout (`python -m venv`, `pip install -r
+requirements.txt`, `pip install -e .`) - as a skeptical reviewer would,
+rather than trusting that it had been done - failed outright: `pip install
+-e .` errored with `package directory 'src\mcp_rl_env' does not exist`.
+Running `pytest -q` anyway (skipping the editable install) still failed 16
+of 52 tests with `ModuleNotFoundError: No module named 'mcp_rl_env'` and
+related import errors.
+
+**Root cause:** `git status` showed the actual state honestly: `src/`
+had already been renamed from `mcp_rl_env` to `mcp_agent_benchmark` in the
+working tree (the four files under the old path were staged as deleted,
+the new directory was untracked, and 4 of ~20 files that imported the
+package - `tests/test_inventory.py`, `tests/test_task_regression.py`,
+`tests/test_task_regression_restock.py`, `tests/test_tools_path_safety.py`
+- had already been updated to import from `mcp_agent_benchmark`), but
+nothing else in the repository had been updated to match: `pyproject.toml`
+still declared and mapped the old package name, `harness/task_registry.py`
+(every task's `seed_include`, `buggy_sources`, and inlined
+`behavior_check` source), `harness/workspace.py`, `harness/verifier.py`,
+`harness/mcp_client.py` (the MCP server subprocess command and the
+`MCP_RL_ENV_ROOT` environment variable it and `server.py` agree on),
+`eval/reward.py`, `eval/reward_replication.py`, `apply_golden.py`, both
+`golden/*/solution.patch` files, and 5 more test files all still
+referenced `mcp_rl_env` by name or path. This is exactly the "superficial
+string replacement" failure mode a rename invites: renaming the directory
+that holds the code is the easy 5%: the registry data, the environment
+variable, the golden patches, and the reproduction docs are the other 95%,
+and any one of them left stale breaks the whole benchmark for a fresh
+checkout even though `git status` looked almost done.
+
+**Decision:** completed the rename everywhere it was still stale -
+`pyproject.toml` (`name = "mcp-agent-benchmark"`; `packages`/`package-dir`
+now list both `mcp_agent_benchmark` and `contact_index`, the latter
+previously only importable via pytest's `pythonpath` setting rather than a
+real install, fixed in the same pass since it's the same class of gap),
+every `harness/`, `eval/`, `apply_golden.py`, and test-file reference, both
+golden patches, and the `MCP_RL_ENV_ROOT` environment variable (now
+`MCP_AGENT_BENCHMARK_ROOT` in `server.py` and `harness/mcp_client.py`,
+consistently on both ends). No RL terminology is retained anywhere in the
+active codebase after this pass - this project does not train or run
+reinforcement learning against these tasks; the old name was a holdover
+from an earlier working title, not a description of a component that
+exists.
+
+**What was deliberately left unchanged, and why:** the three committed
+manual-episode trajectories (`trajectories/{baseline,advanced}/*.md/.json`)
+still show `mcp_rl_env` paths verbatim in tool arguments and results,
+because that is what the real MCP server actually returned to the real
+agent turn at the time those episodes were recorded - editing an
+evidentiary transcript after the fact to match a later, purely cosmetic
+rename would misrepresent what happened, which is a worse error than a
+stale name. `trajectories/README.md` now says this explicitly.
+`TASK_SUITE_DESIGN.md`'s design narrative (predates and is unrelated to
+this rename) is left as its own header already commits it to be: a
+preserved design record, not silently rewritten to match what shipped
+later. `CHANGELOG.md`'s own earlier entries (this one included, once
+written) are never edited after the fact for the same reason - each is a
+dated record of what was true and known at that point, not living
+documentation.
+
+**Verification:** deleted the stale `.venv_test`, created a fresh venv,
+and re-ran the exact documented sequence end to end: `pip install -r
+requirements.txt` succeeds, `pip install -e .` now succeeds (previously
+failed outright), `pytest -q` -> `52 passed`, `python verify.py` ->
+`REWARD=1.00`, `python apply_golden.py` -> `Golden solution is already
+applied` (no-op, as documented), `python -m eval.reward` and `python -m
+eval.reward_replication` reproduce the identical reward numbers as before
+the rename (only the embedded description text now correctly says
+`mcp_agent_benchmark.inventory` instead of `mcp_rl_env.inventory` -
+`experiments/reward_hacking/{results,replication_results}.json` were
+regenerated and diff to exactly that one-line change per file, confirming
+the rename did not alter the flagship finding). Also manually re-ran
+REPRODUCE.md's Part 2 sequence end to end (`make_episode_workspace` ->
+five real `harness.mcp_call` invocations against the real MCP server,
+including a `write_file` to the new `src/mcp_agent_benchmark/inventory.py`
+path -> `--finish`) and got a real `reward: 0.85` report, confirming the
+manual reproduction path works with the corrected paths, not just the
+automated test suite.
+
+## Phase 4 (continued) - A second, real adversarial exploit against the regression-test verifier, found and left honestly open
+
+**Hypothesis (per this review's own adversarial-evaluator-audit
+requirement):** the mutation-testing fix from item 10 closes the specific
+gap it was built for (a test whose *text* proves nothing), but mutation
+testing against a single known-buggy source only proves a test can tell
+*that one* buggy implementation from *that one* fixed implementation - it
+says nothing about whether the test exercises real behavior at all. Worth
+attacking directly rather than trusting it closed every gap in the
+category.
+
+**Experiment:** wrote a "regression test" that imports the real module and
+calls a real function (`inspect.getsource`), then asserts a specific
+variable name appears in the fix's source text - never calling
+`InventoryService.search()`, never asserting anything about a query
+result:
+```python
+import inspect
+from mcp_agent_benchmark.inventory import InventoryService
+
+def test_search_uses_a_matched_flag():
+    src = inspect.getsource(InventoryService.search)
+    assert "matched" in src
+```
+Ran it through `harness.verifier.verify_workspace()` against a workspace
+with the real, correct fix applied.
+
+**Evidence:** `regression_test_present: True`, `reward: 1.0` - full
+credit, confirmed reproducible via a new `source_text_coupled_test`
+condition added to `eval/reward.py`'s existing experiment (`python -m
+eval.reward`). It passes the mutation check only because the seeded buggy
+`inventory.py` doesn't happen to contain the substring `"matched"` - an
+accident of how the *reference fix* was worded. Confirmed the failure mode
+runs both directions: the same test, re-run against a differently-styled
+but equally-correct alternative fix (a `haystacks`/`any(...)`
+implementation instead of a `matched` flag), makes the agent's own
+`run_tests` step fail outright (`tests_passed: False`, `reward: 0.0`) -
+i.e. this check can both over-credit a test that proves nothing and
+under-credit a genuinely correct fix, depending on how closely the fix's
+wording happens to match the one reference implementation.
+
+**Decision: documented as an open limitation, not patched.** A principled
+fix (require the candidate test to also *pass* against a second,
+independently-styled correct implementation, not only *fail* against the
+one known-buggy source) needs a second real fixture per task - genuine
+authoring effort, not a one-line change - and a blacklist-style fix
+(reject tests that import `inspect` or read their own subject's source)
+would just be a different lexical proxy of the exact shape this project's
+own methodology argues against, trivially bypassed by e.g. `open(__file__)`
+or `.__code__.co_consts`. Recorded in RESEARCH.md's "A second, distinct
+exploit found in final review" section and README's Limitations rather
+than silently fixed with a check of the same kind it would be trying to
+catch. No agent episode in this project (baseline, advanced, or
+generalization) ever produced anything resembling this - constructed
+adversarially by this review, the same way the original vacuous-test
+exploit was.
+
+**Verification:** `python -m eval.reward` re-run after adding the
+condition; the three pre-existing conditions' results are byte-identical
+to before (`vacuous_test`, `no_test_function`, `real_regression_test`),
+confirming the new condition is additive and doesn't disturb the
+established flagship result. `verify.py` itself was not modified in this
+entry, so `manual-baseline-01` (0.85) and `manual-advanced-01`/
+`manual-recovery-01` (1.00) are unaffected by construction, not merely by
+re-verification.
+
+## Phase 4 (continued) - `generalization_contact_index`'s task wording had leaked from `bugfix_inventory` after all
+
+**Evidence:** TASK_SUITE_DESIGN.md's own C6 spec states the held-out
+task's "requirement list must be written independently to avoid the agent
+pattern-matching on phrasing" - checked directly, by reading
+`tasks/bugfix_inventory/task.md` and
+`tasks/generalization_contact_index/task.md` side by side rather than
+trusting the design doc's own claim that this was done, and it was not:
+every one of the six requirements was a near-verbatim template
+substitution of the inventory task's wording (noun swapped, structure,
+clause order, and most words identical - e.g. "A product must appear at
+most once in the result" / "A contact must appear at most once in the
+result"; "Do not change the public `Product` API" / "Do not change the
+public `Contact` API"). An agent - or a model with pretraining exposure to
+this exact requirement-list template - could satisfy this task by
+pattern-matching the *shape* of the requirements list rather than reading
+and reasoning about the actual repository and ticket in front of it,
+which is precisely the confound C6 exists to rule out, not exhibit.
+
+**Decision:** rewrote `tasks/generalization_contact_index/task.md` from
+scratch in a structurally different form (a prose support-ticket
+framing, no numbered requirements list, requirements folded into
+paragraphs and a short unordered checklist in a different order) that
+preserves the same six substantive requirements without echoing
+`bugfix_inventory`'s sentence templates, structure, or numbering. No test
+in this repository hardcodes the old wording (`tests/test_task_generalization_contact_index.py`
+checks file contents and verifier behavior, never task.md text), and no
+agent episode has been run against this task yet (`trajectories/`
+contains no `generalization_contact_index` episodes), so this fix has no
+downstream evidence to reconcile - it closes the gap before it could
+contaminate a real result, not after.
+
+**Why this wasn't caught earlier:** TASK_SUITE_DESIGN.md Section 9 lists
+"task wording cross-contamination" as a risk requiring "a human diff read
+before C6 ships, not assumed" - that diff read was never actually
+performed before this final review; the design doc's own stated mitigation
+was written down but not carried out. Recorded here rather than silently
+edited into TASK_SUITE_DESIGN.md, per that document's own stated policy of
+being a preserved record rather than an editable one.
+
+**Verification:** re-ran the full suite after the rewrite -
+`tests/test_task_generalization_contact_index.py`'s four tests (seed
+contents, the seeded bug, unfixed-seed scoring, real-fix-plus-regression
+scoring, vacuous-test rejection) still pass unchanged, since none of them
+inspect task.md's prose - confirming the fix is isolated to the one
+leakage vector it targets and doesn't touch the task's verifier or seed
+mechanics.
+
+## Phase 5 - Task suite expansion: 5 -> 15 tasks
+
+Ten new tasks were added, each in a genuinely different domain and bug
+shape from the inventory/contacts tasks above - not a renamed
+`InventoryService`. Every one follows the three non-negotiable properties
+`TASK_SUITE_DESIGN.md` §6 already established for the original suite: the
+agent's workspace never contains `verify.py`, `golden/`, or another task's
+answer material; the deterministic behavioral check exercises at least one
+property the visible test suite could not have caught; and every task
+ships a real, independently-verified golden fix.
+
+**Capability mapping** (the dimension each task was built to isolate):
+
+| Task | Domain | Capability |
+|---|---|---|
+| `ledger_transfer_rollback` | banking ledger | transactional/rollback reasoning + invariant preservation (total balance conserved) |
+| `calendar_booking_overlap` | room booking | edge-case/boundary reasoning (touching vs. overlapping intervals) |
+| `config_loader_backward_compat` | config parsing | backward compatibility (old data format + new code) |
+| `batch_partial_failure_recovery` | batch job processor | partial-failure recovery (code-level state consistency, not agent-level tool recovery) |
+| `lru_cache_eviction_invariant` | LRU cache | invariant preservation and state consistency (recency ordering) |
+| `template_render_decoy` | template renderer | decoy/context discipline, in a domain independent of `decoy_context_efficiency`'s inventory repo |
+| `pricing_discount_rounding` | shopping cart | self-correction after verification failure (a pre-existing visible test already fails on the seed - see below) + boundary/rounding reasoning |
+| `notes_tag_rename_generalization` (held out) | notes/tags | cross-domain generalization of a *different* developed capability (C1's exact-vs-substring trap) than `generalization_contact_index` tests |
+| `shipping_quote_root_cause` | shipping rate quotes | tool-use planning / exploration efficiency (the bug is one call away from the visible symptom, in a file the task statement doesn't name) |
+| `dependency_resolver_cycle_detection` | build-dependency graph | invariant preservation (a returned order must actually be valid, or the function must raise) + edge-case reasoning (cycle detection) |
+
+**`deterministic verification` was not built as an 11th task.** Per the
+same precedent the original design set for C4 (`hidden_invariant_beyond_
+visible_tests`, rejected as a task and adopted as a standing rule instead):
+determinism is a property every task's verifier must have, not a
+phenomenon a task can isolate on its own. All 15 tasks satisfy it by using
+the same `verify.py` mechanism; there is nothing further to build.
+
+**`pricing_discount_rounding` is deliberately structured differently from
+the other nine.** Every other new task hides its bug entirely behind
+`verify.py`'s behavioral check, exactly like the original five. This one's
+copied-in visible test suite (`tests/test_pricing.py`) includes a test
+that already fails against the seeded buggy code with concrete numbers
+(a 3-line-item, 15%-discount basket where per-line rounding gives 27 cents
+and round-once gives 26) - so the agent must diagnose a real, already-
+visible failure rather than discover a hidden one, which is what "self-
+correction after verification failure" actually means as a capability,
+distinct from C1's "your own fix broke something else" self-correction
+trap. The required new regression test and the hidden `verify.py` check
+each use a third and fourth independent set of numbers (4 items at 20%,
+and 5 items at 9%, respectively), so a fix cannot be special-cased to the
+one example already in front of the agent.
+
+**Verification performed on every one of the ten:**
+- `pip install -e .` succeeds with all ten new packages
+  (`ledger`, `scheduler`, `configloader`, `batch`, `cache`, `templating`,
+  `pricing`, `notes`, `shipping`, `deps`) added to `pyproject.toml`.
+- Full suite: `pytest -q` -> 134 passed (52 before this phase, +82: 23
+  pre-existing-suite tests, 10 genuine-regression-test fixtures, and 49
+  per-task registry tests covering seed contents, the seeded bug, unfixed-
+  seed scoring, fixed-plus-regression scoring at 1.0, vacuous-test
+  rejection at 0.85, and (for `notes_tag_rename_generalization`, mirroring
+  C1's own coverage) an over-corrected fix that breaks the pre-existing
+  suite scoring 0.0).
+- A dedicated holistic script (not just the per-task pytest files)
+  independently re-verified, across all 15 registered tasks: `all_task_ids()`
+  returns exactly 15; no task's workspace contains any other task's
+  `task.md`, `golden/`, or `verify.py`; every one of the ten new tasks'
+  unfixed seed scores below full reward, its real fix plus a genuine
+  regression test scores exactly 1.0, and a vacuous regression test is
+  rejected at 0.85; `verify()`'s return shape is the same five-key contract
+  for every task; and mutating one workspace never affects an
+  independently-created second workspace for the same task.
+- `VERIFY_TASK_ID=dependency_resolver_cycle_detection VERIFY_ROOT=<ws>
+  python verify.py` (the CLI path REPRODUCE.md documents, not just the
+  Python API) confirmed working end to end against a brand-new task,
+  correctly reporting `REWARD=0.5` on the unfixed seed.
+- The flagship reward-hacking experiment was re-run, not just left alone:
+  `python -m eval.reward` and `python -m eval.reward_replication` produce
+  results identical to before this phase (including the
+  `source_text_coupled_test` condition added in this review's earlier
+  pass) - the new tasks add no new reward-hacking surface and don't
+  perturb the existing one, confirmed rather than assumed.
+
+**Considered and rejected, with reasons:**
+- **A second sandbox-escape/security task.** Rejected for the same reason
+  the original C8 was: path containment (`_safe_path`) makes escape
+  impossible regardless of which task is active, already covered by
+  `tests/test_tools_path_safety.py` - a task built around it would measure
+  nothing new.
+- **A concurrency/race-condition task** (e.g. two overlapping ledger
+  transfers, or a thread-safety property on the LRU cache). Rejected: the
+  six MCP tools exposed to an agent have no concurrency primitives, so
+  there is no way for an agent to actually trigger, observe, or fix a race
+  condition through the tool surface this benchmark provides - it would be
+  a task with no way to experimentally distinguish agent behavior, which
+  the brief for this project explicitly disqualifies.
+- **A dedicated tool-call-budget task** (artificially tight `max_turns`).
+  Rejected again for the same reason as the original C9: it's a condition
+  applicable to any existing task via an existing parameter, not a new
+  task - building one now would be manufacturing difficulty rather than
+  measuring a real tradeoff.
+- **A multi-agent-required task.** Rejected: none of the ten designs have
+  an observed bottleneck (role confusion, context limits) that orchestration
+  would fix - every one is solvable by the same single-agent loop already
+  in `agents/loop.py`, and adding a forced multi-agent framing without
+  evidence behind it would be exactly the decorative complexity this
+  project's own methodology argues against.
+- **A third held-out generalization task.** Considered, to push the
+  held-out sample from n=2 to n=3. Deferred rather than rushed: the two
+  held-out tasks added this phase already test two different transferred
+  capabilities (multi-field dedup, exact-vs-substring matching) in two
+  unseen domains, which is a real improvement over the prior n=1; a third
+  task built quickly, without the same care that caught
+  `generalization_contact_index`'s wording-leakage bug earlier in this
+  review, risks reintroducing that exact failure mode under time pressure.
+  Better to ship two carefully-checked held-out tasks than three hurried
+  ones.
+- **A third reward-hacking replication fixture** on one of the ten new
+  tasks' regression-test check (a third `eval.reward`-style experiment).
+  Considered, since the brief asked to "strengthen" the flagship
+  experiment. Deferred: the existing two replications
+  (`eval/reward.py`'s `bugfix_inventory`, `eval/reward_replication.py`'s
+  `edge_case_coverage`) plus the `source_text_coupled_test` exploit found
+  in this review's earlier pass already give three independent data points
+  for the same mechanism. Manufacturing a fourth on a brand-new domain in
+  the same session it was built, without first running the same
+  adversarial 10-step search protocol `TASK_SUITE_DESIGN.md` §5 applied
+  before proposing C5, would risk asserting a result instead of
+  discovering one - left as clearly-scoped future work instead.
+- **A cross-runtime/subprocess task** (e.g. a Python wrapper shelling out
+  to another language). Rejected: no research payoff distinct from what
+  `shipping_quote_root_cause`'s multi-file root-cause tracing already
+  covers, and a new runtime dependency is exactly the kind of
+  environment-specific reproducibility risk this project spent real effort
+  eliminating in Phase 4 (the rename break) - not worth reintroducing for
+  a task that wouldn't measure anything new.
+
+**What was NOT changed in this phase:** `verify.py`'s mechanism,
+`harness/trajectory.py`'s schema, `eval/trajectory_metrics.py`, the
+0.0/0.5/0.85/1.0 reward scale, and the original five tasks' own files -
+all reused unchanged, which is what makes the new tasks' scores directly
+comparable to the original five's in any future `results/`-style table.

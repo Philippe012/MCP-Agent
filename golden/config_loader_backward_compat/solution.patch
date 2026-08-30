@@ -1,0 +1,32 @@
+--- a/src/configloader/loader.py
++++ b/src/configloader/loader.py
+@@
+ def load_timeout(config: dict) -> int:
+-    network = config.get("network", {})
+-    if "timeout" in network:
++    network = config.get("network")
++    if isinstance(network, dict) and "timeout" in network:
+         return int(network["timeout"])
++    if "timeout" in config:
++        return int(config["timeout"])
+     return 30
+
+
+ def load_retries(config: dict) -> int:
+-    network = config.get("network", {})
+-    if "retries" in network:
++    network = config.get("network")
++    if isinstance(network, dict) and "retries" in network:
+         return int(network["retries"])
++    if "retries" in config:
++        return int(config["retries"])
+     return 3
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from configloader.loader import load_retries, load_timeout
++
++
++def test_legacy_flat_config_is_read_correctly():
++    assert load_timeout({"timeout": 45}) == 45
++    assert load_retries({"retries": 5}) == 5

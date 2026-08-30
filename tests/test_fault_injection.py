@@ -90,7 +90,7 @@ def test_non_faulted_calls_still_reach_the_real_server(seeded_workspace):
         async with FaultInjectingMCPToolSession(seeded_workspace, conditions) as session:
             files = await session.call("list_files")
             try:
-                await session.call("read_file", path="src/mcp_rl_env/inventory.py")
+                await session.call("read_file", path="src/mcp_agent_benchmark/inventory.py")
                 read_failed = False
             except MCPToolError:
                 read_failed = True

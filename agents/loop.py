@@ -58,7 +58,7 @@ async def run_agent_episode(
     `task_id` must match the task_id the workspace was actually seeded
     with (harness/workspace.py's make_episode_workspace) - it's not
     inferred from the workspace, so the caller is responsible for keeping
-    the two in sync (mirrors how MCP_RL_ENV_ROOT has no silent fallback:
+    the two in sync (mirrors how MCP_AGENT_BENCHMARK_ROOT has no silent fallback:
     an explicit, possibly-wrong value fails loudly and correctably, a
     guessed one wouldn't). `session_factory` swaps in a
     FaultInjectingMCPToolSession (harness/fault_injection.py) for

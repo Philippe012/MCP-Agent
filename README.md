@@ -91,16 +91,27 @@ claimed.
 
 ## Task suite
 
-`bugfix_inventory` is one of five tasks in `harness/task_registry.py`
-(`bugfix_restock_exact_match`, `decoy_context_efficiency`,
-`edge_case_coverage`, `generalization_contact_index`), each added because
-it isolates a distinct research question rather than to grow the count -
-see [TASK_SUITE_DESIGN.md](TASK_SUITE_DESIGN.md) for the full design
-review, including every candidate task that was considered and rejected,
-and why. `generalization_contact_index` is deliberately held out: never
-referenced while iterating on prompts or the other tasks, used only to
-measure whether a policy transfers to an unseen domain or was tuned to
-this one.
+`harness/task_registry.py` registers 15 tasks across 11 independent
+domains (inventory, contacts, a ledger, a room-booking calendar, a config
+loader, a batch processor, an LRU cache, a template renderer, a shopping
+cart, a notes app, a shipping-rate calculator, and a dependency resolver) -
+see [TASK_SUITE_DESIGN.md](TASK_SUITE_DESIGN.md) for the original 6-task
+design review and [CHANGELOG.md](CHANGELOG.md)'s "Phase 5" entry for the
+expansion to 15, including every candidate considered and rejected. Every
+task shares the same non-negotiable properties: the agent's workspace
+never contains `verify.py`, `golden/`, or another task's answer material;
+the deterministic verifier always checks at least one behavioral property
+the visible test suite could not have caught; and every task ships a real,
+independently-verified golden fix.
+
+Two tasks are deliberately held out (`generalization_contact_index`,
+`notes_tag_rename_generalization`): never referenced while iterating on
+prompts or the other tasks, used only to measure whether a policy
+transfers to an unseen domain or was tuned to the domains it was developed
+against. They test two different transferred capabilities (multi-field
+deduplication, and exact-vs-substring matching under an existing-test
+self-correction trap) in two different unseen domains, rather than
+repeating the same held-out check twice.
 
 ## Baseline vs. advanced
 
@@ -219,6 +230,16 @@ common thread is that a check which cannot fail is not a check.
 - **Single task instance.** Both policies are compared on one bugfix task.
   See CHANGELOG's "considered and not built: task variants" for why
   generalization wasn't tested here.
+- **The regression-test verifier has a second, unfixed exploit shape.**
+  The mutation-testing fix (this project's own hot take, above) closes the
+  *lexical-presence* gap (a test that asserts nothing) but not a
+  *source-text-coupling* gap (a test that inspects the fix's source code
+  for an incidental token instead of calling it) - found during this
+  project's own final adversarial review, reproducible via
+  `python -m eval.reward`'s `source_text_coupled_test` condition, and left
+  open rather than patched with a same-shape blacklist. See RESEARCH.md's
+  "A second, distinct exploit found in final review" section for the full
+  writeup and why a principled fix wasn't built in this pass.
 
 ## What was deliberately not built, and why
 

@@ -49,7 +49,7 @@ def make_episode_workspace(
     """
     spec = get_task(task_id)
     episode_id = episode_id or uuid.uuid4().hex[:12]
-    base_dir = base_dir or Path(tempfile.gettempdir()) / "mcp_rl_env_runs"
+    base_dir = base_dir or Path(tempfile.gettempdir()) / "mcp_agent_benchmark_runs"
     workspace = base_dir / episode_id
     if workspace.exists():
         _force_rmtree(workspace)

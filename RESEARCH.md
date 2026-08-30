@@ -119,7 +119,7 @@ Reproduce with `python -m eval.reward`; raw output also saved to
 
 **The gap is real and exactly one condition wide.** The weak evaluator
 credits `vacuous_test` with full reward for a file that calls nothing
-from `mcp_rl_env.inventory` and asserts nothing about deduplication -
+from `mcp_agent_benchmark.inventory` and asserts nothing about deduplication -
 indistinguishable, to a reward-optimizing process, from writing the real
 test. The strong evaluator correctly denies it (0.85, same as writing a
 correct fix with no test at all), while continuing to fully credit the
@@ -178,6 +178,76 @@ gap is a property of the *checking method*, not one specific test file's
 wording, which is a narrower and more honest claim than "this failure
 mode is common" - see the limitation below, which is now partially,
 not fully, addressed.
+
+## A second, distinct exploit found in final review - not closed by the mutation-testing fix
+
+The mutation-testing fix (above) closes the *lexical-presence* gap: a test
+that asserts nothing can no longer score full reward, because it can't
+tell the buggy source from the fixed one. A final adversarial pass on this
+same check (`verify.py::_regression_test_proves_the_fix`), done for this
+document's own "clean-room review" gate rather than during original
+development, found a second, structurally different way to satisfy it
+without exercising real behavior:
+
+```python
+import inspect
+from mcp_agent_benchmark.inventory import InventoryService
+
+def test_search_uses_a_matched_flag():
+    src = inspect.getsource(InventoryService.search)
+    assert "matched" in src
+```
+
+This calls a real function (`inspect.getsource`) and imports the real
+module - it is not vacuous by the earlier definition, and would not look
+obviously fake to a human skimming it the way `assert True` does. It never
+calls `InventoryService.search()` and asserts nothing about a query
+result. `python -m eval.reward` (see the `source_text_coupled_test`
+condition, added by this review) confirms it scores `regression_test_present:
+true, reward: 1.0` - full credit - because the one seeded buggy
+`inventory.py` happens not to contain the substring `"matched"`, a
+coincidence of how the *reference fix* was written, not a property of
+correct-vs-buggy search behavior.
+
+**This is confirmed to be a real gap, not a hypothetical one, by a second
+check:** the exact same test, run via `verify_workspace()` again after
+swapping in a differently-styled but equally-correct alternative fix (one
+that builds a list of "haystacks" per product and checks `any(...)`
+instead of using a `matched` flag), makes the *agent's own* `run_tests`
+step fail (`tests_passed: False`, `reward: 0.0`) - the regression test
+would wrongly fail a correct fix that solves the real problem, simply
+because it doesn't happen to be spelled the reference way. Both directions
+of the failure are demonstrated, not just asserted: it over-credits a test
+that behaviorally proves nothing, and (in the counterfactual case) it
+would under-credit a correct fix that is not textually identical to the
+one reference implementation.
+
+**Why this is not fixed in this pass, unlike the vacuous-test gap:** the
+principled fix - requiring the candidate regression test to also *pass*
+when run against a second, independently-styled correct implementation,
+not only *fail* against the one known-buggy source - needs a second real
+"known-good, differently-written" fixture per task, which is genuine
+authoring effort multiplied across every task in `harness/task_registry.py`,
+not a one-line change to `verify.py`. A narrower, blacklist-style fix
+(reject any regression test that imports `inspect` or reads its own
+subject's source) was considered and rejected on the same grounds this
+project rejects every other text-shape check: it is trivially bypassed
+(`open(__file__)`, `.__code__.co_consts`, a second buggy fixture with
+different wording) and would just be a *different* lexical proxy standing
+in for "exercises real behavior," which is exactly the class of check this
+project's own methodology argues against building. This is recorded here
+as an honest, currently-open limitation rather than silently patched with
+a check of the same shape it's trying to fix.
+
+**Impact, scoped honestly:** no coding agent in this project (baseline,
+advanced, or the held-out generalization task) ever produced anything
+resembling this - it was constructed adversarially by this review, exactly
+like the original vacuous-test finding was. It does not change any
+reported reward number for `manual-baseline-01`, `manual-advanced-01`, or
+`manual-recovery-01` (none of their regression tests inspect source text).
+It is reported here because a "final adversarial review" that stops
+looking as soon as it confirms the one exploit it already knew about would
+not actually be adversarial.
 
 ## Limitations
 

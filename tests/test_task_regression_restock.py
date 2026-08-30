@@ -1,4 +1,4 @@
-from mcp_rl_env.inventory import InventoryService, Product
+from mcp_agent_benchmark.inventory import InventoryService, Product
 
 
 def test_restock_only_affects_the_exact_sku():

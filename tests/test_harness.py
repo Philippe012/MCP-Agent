@@ -24,17 +24,17 @@ def seeded_workspace(tmp_path):
 
 def test_seed_workspace_contains_only_sandboxed_files(seeded_workspace):
     names = {p.relative_to(seeded_workspace).as_posix() for p in seeded_workspace.rglob("*") if p.is_file()}
-    assert "src/mcp_rl_env/inventory.py" in names
-    assert "src/mcp_rl_env/__init__.py" in names
-    assert "src/mcp_rl_env/server.py" not in names
-    assert "src/mcp_rl_env/tools.py" not in names
+    assert "src/mcp_agent_benchmark/inventory.py" in names
+    assert "src/mcp_agent_benchmark/__init__.py" in names
+    assert "src/mcp_agent_benchmark/server.py" not in names
+    assert "src/mcp_agent_benchmark/tools.py" not in names
     assert not any(n.startswith("verify.py") for n in names)
     assert not any("golden" in n for n in names)
     assert "tests/test_task_regression.py" not in names
 
 
 def test_seed_workspace_has_the_real_bug(seeded_workspace):
-    text = (seeded_workspace / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8")
+    text = (seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py").read_text(encoding="utf-8")
     assert "for tag in product.tags" in text 
 
 
@@ -56,14 +56,14 @@ def test_verifier_scores_a_correct_fix_plus_regression_test_at_full_reward(seede
     fixed = (REPO_ROOT / "golden" / "bugfix_inventory" / "solution.patch").exists()
     assert fixed
 
-    inventory = seeded_workspace / "src" / "mcp_rl_env" / "inventory.py"
+    inventory = seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py"
     inventory.write_text(
-        (REPO_ROOT / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8"),
+        (REPO_ROOT / "src" / "mcp_agent_benchmark" / "inventory.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     regression = seeded_workspace / "tests" / "test_task_regression.py"
     regression.write_text(
-        "from mcp_rl_env.inventory import InventoryService, Product\n\n\n"
+        "from mcp_agent_benchmark.inventory import InventoryService, Product\n\n\n"
         "def test_multiple_fields_match_returns_product_once():\n"
         "    p = Product('X', 'Red Shoe', ('sport', 'red', 'shoe'), 1)\n"
         "    assert [x.sku for x in InventoryService([p]).search('re')] == ['X']\n",
@@ -75,9 +75,9 @@ def test_verifier_scores_a_correct_fix_plus_regression_test_at_full_reward(seede
 
 
 def test_verifier_rejects_a_vacuous_regression_test(seeded_workspace):
-    inventory = seeded_workspace / "src" / "mcp_rl_env" / "inventory.py"
+    inventory = seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py"
     inventory.write_text(
-        (REPO_ROOT / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8"),
+        (REPO_ROOT / "src" / "mcp_agent_benchmark" / "inventory.py").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     regression = seeded_workspace / "tests" / "test_task_regression.py"
@@ -142,14 +142,14 @@ def test_make_episode_workspace_can_reuse_an_episode_id_after_cleanup(tmp_path):
     cleanup(ws2)
 
 
-def test_server_refuses_to_start_without_mcp_rl_env_root():
+def test_server_refuses_to_start_without_mcp_agent_benchmark_root():
     import os
     import subprocess
 
-    env = {k: v for k, v in os.environ.items() if k != "MCP_RL_ENV_ROOT"}
+    env = {k: v for k, v in os.environ.items() if k != "MCP_AGENT_BENCHMARK_ROOT"}
     env["PYTHONPATH"] = str(REPO_ROOT / "src")
     proc = subprocess.run(
-        [sys.executable, "-m", "mcp_rl_env.server"],
+        [sys.executable, "-m", "mcp_agent_benchmark.server"],
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
@@ -157,7 +157,7 @@ def test_server_refuses_to_start_without_mcp_rl_env_root():
         timeout=15,
     )
     assert proc.returncode != 0
-    assert "MCP_RL_ENV_ROOT" in proc.stderr
+    assert "MCP_AGENT_BENCHMARK_ROOT" in proc.stderr
 
 
 def test_trajectory_requires_a_reasoning_note():

@@ -3,7 +3,7 @@ import importlib.util
 
 ROOT = Path(__file__).resolve().parent
 
-inventory_path = ROOT / "src" / "mcp_rl_env" / "inventory.py"
+inventory_path = ROOT / "src" / "mcp_agent_benchmark" / "inventory.py"
 regression_path = ROOT / "tests" / "test_task_regression.py"
 
 # Fallback content, used only to create tests/test_task_regression.py when
@@ -12,7 +12,7 @@ regression_path = ROOT / "tests" / "test_task_regression.py"
 # second, independently-maintained copy that can drift out of sync - it
 # previously did, and silently overwrote the real file on every run (see
 # CHANGELOG item 13's follow-up).
-golden_test = '''from mcp_rl_env.inventory import InventoryService, Product
+golden_test = '''from mcp_agent_benchmark.inventory import InventoryService, Product
 
 
 def test_search_multiple_fields_does_not_duplicate_product():
@@ -31,7 +31,7 @@ def test_search_multiple_fields_does_not_duplicate_product():
 
 
 def _search_is_already_fixed() -> bool:
-    spec = importlib.util.spec_from_file_location("mcp_rl_env_inventory_check", inventory_path)
+    spec = importlib.util.spec_from_file_location("mcp_agent_benchmark_inventory_check", inventory_path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)

@@ -1,22 +1,3 @@
-"""Deterministic verifier, shared by every task in harness/task_registry.py.
-
-Computes a reward in [0, 1] for a workspace (the real repo's
-bugfix_inventory state by default, or any episode workspace via
-VERIFY_ROOT / verify(root, task_id)). The model never grades itself: this
-script is the only source of truth for reward, and the evaluation harness
-(harness/verifier.py) imports `verify()` directly so batch runs and this
-CLI always agree.
-
-verify(root, task_id) always returns a dict with exactly these keys:
-  tests_passed: bool, behavior_passed: bool, regression_test_present: bool,
-  reward: float in {0.0, 0.5, 0.85, 1.0}, stdout: str
-
-What varies per task (seed files, the behavioral check, the regression
-test path, the buggy-mutation source) lives in harness/task_registry.py,
-not here - this file is the grading *mechanism*, shared unchanged across
-every task so a reward of e.g. 0.85 means the same thing everywhere.
-"""
-
 from pathlib import Path
 import os
 import shutil
@@ -38,17 +19,6 @@ def _run(root: Path, cmd: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def _regression_test_proves_the_fix(root: Path, spec: TaskSpec) -> bool:
-    """Run the candidate regression test against the task's own known-buggy
-    source(s) in a scratch copy, and require it to fail there - a test
-    that can't tell the buggy implementation from the fixed one doesn't
-    prove anything, whatever it's named.
-
-    pytest's exit code 1 means "tests ran and at least one failed" -
-    checked instead of a generic `!= 0`, because a regression file with no
-    test function at all exits 5 ("no tests collected"), which is also
-    non-zero and would otherwise be misread as a genuine failure. Confirmed
-    empirically (see CHANGELOG) before relying on this distinction.
-    """
     regression = root / spec.regression_test_path
     if not regression.exists():
         return False
@@ -66,8 +36,7 @@ def _regression_test_proves_the_fix(root: Path, spec: TaskSpec) -> bool:
 
 
 def verify(root: Path, task_id: str = DEFAULT_TASK_ID) -> dict:
-    """Run the full verification pipeline against `root` for the given
-    task and return a report."""
+    
     spec = get_task(task_id)
     log: list[str] = []
     root = root.resolve()
@@ -98,10 +67,6 @@ def verify(root: Path, task_id: str = DEFAULT_TASK_ID) -> dict:
         }
 
     has_regression = _regression_test_proves_the_fix(root, spec)
-    # 0.0 broken code, 0.5 code works but the fix is unverified/wrong,
-    # 0.85 correct fix without a regression test, 1.0 correct fix +
-    # regression test - each threshold is a distinct, separately-checked
-    # failure mode, not an arbitrary scale.
     reward = 1.0 if has_regression else PASSING_REWARD_THRESHOLD
     log.append("DETERMINISTIC_BEHAVIOR=PASS")
     log.append(f"REGRESSION_TEST={'PASS' if has_regression else 'MISSING_OR_VACUOUS'}")

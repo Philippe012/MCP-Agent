@@ -20,17 +20,15 @@ manually-driven episodes rather than automated ones).
 ## Part 1 - the environment itself (no API key needed)
 
 ```bash
-git clone <this repo> && cd mcp_rl_env_seed_export
+git clone <this repo> && cd mcp-agent-benchmark
 python -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt      # installs mcp, pytest, anthropic; ~15s
-pip install -e .                     # makes agents/, harness/, eval/, mcp_rl_env importable
-                                      # from any cwd, e.g. `python agents/baseline_agent.py`
-                                      # directly - see CHANGELOG's Phase 1 entry
-pytest -q                            # 52 passed, ~50s
+source .venv/bin/activate   
+pip install -r requirements.txt
+pip install -e .      
+pytest -q                     
 ```
 
-Expected output: `52 passed in ~50s`. These tests cover the original
+Expected output: `134 passed in ~3 min`. These tests cover the original
 inventory-service unit tests, `tests/test_harness.py` (episode
 isolation, the seeded bug, the verifier's scoring in both directions
 including its rejection of a vacuous regression test - see CHANGELOG item
@@ -38,17 +36,30 @@ including its rejection of a vacuous regression test - see CHANGELOG item
 regression test), `tests/test_tool_schema_parity.py` (connects to the real
 MCP server and checks it against `agents/tool_schemas.py`),
 `tests/test_tools_path_safety.py` (direct tests of the path-containment
-property), one test file per task in `harness/task_registry.py` beyond
-`bugfix_inventory` (`test_task_bugfix_restock_exact_match.py`,
+property), `tests/test_fault_injection.py` / `test_loop_integration.py`
+(the deterministic fault-injection wrapper and its end-to-end wiring
+through the agent loop - see TASK_SUITE_DESIGN.md and CHANGELOG's Phase
+3), and one `test_task_<id>.py` file per registered task beyond
+`bugfix_inventory` - 4 from the original suite
+(`test_task_bugfix_restock_exact_match.py`,
 `test_task_decoy_context_efficiency.py`,
-`test_task_generalization_contact_index.py`), and
-`test_fault_injection.py` / `test_loop_integration.py` (the deterministic
-fault-injection wrapper and its end-to-end wiring through the agent loop -
-see TASK_SUITE_DESIGN.md and CHANGELOG's Phase 3) - none need network
-access.
+`test_task_generalization_contact_index.py`) plus 10 from the Phase 5
+expansion (`test_task_ledger_transfer_rollback.py`,
+`test_task_calendar_booking_overlap.py`,
+`test_task_config_loader_backward_compat.py`,
+`test_task_batch_partial_failure_recovery.py`,
+`test_task_lru_cache_eviction_invariant.py`,
+`test_task_template_render_decoy.py`,
+`test_task_pricing_discount_rounding.py`,
+`test_task_notes_tag_rename_generalization.py`,
+`test_task_shipping_quote_root_cause.py`,
+`test_task_dependency_resolver_cycle_detection.py`), each independently
+checking that task's seed contents, seeded bug, unfixed-seed scoring,
+fixed-plus-regression scoring, and vacuous-test rejection - none need
+network access.
 
 ```bash
-python -m eval.reward               # the flagship reward-hacking experiment - see RESEARCH.md
+python -m eval.reward              
 python -m eval.reward_replication   # the same finding, replicated on a different requirement/task
 ```
 
@@ -100,15 +111,14 @@ from harness.workspace import make_episode_workspace
 print(make_episode_workspace(base_dir=Path('runs'), episode_id='my-episode'))
 "
 
-# 2. Make one real MCP tool call at a time (each prints the tool's response
-#    and appends a step to the trajectory file):
+# 2. Make one real MCP tool call at a time (each prints the tool's response and appends a step to the trajectory file):
 python -m harness.mcp_call runs/my-episode read_file path=tasks/bugfix_inventory/task.md \
   --episode my-episode --agent baseline --model "your-name-or-model-here" \
   --task "Fix duplicate search results" --note "why this call"
 python -m harness.mcp_call runs/my-episode list_files --episode my-episode --note "..."
-python -m harness.mcp_call runs/my-episode read_file path=src/mcp_rl_env/inventory.py \
+python -m harness.mcp_call runs/my-episode read_file path=src/mcp_agent_benchmark/inventory.py \
   --episode my-episode --note "..."
-python -m harness.mcp_call runs/my-episode write_file path=src/mcp_rl_env/inventory.py \
+python -m harness.mcp_call runs/my-episode write_file path=src/mcp_agent_benchmark/inventory.py \
   "content=<your fixed source>" --episode my-episode --note "..."
 python -m harness.mcp_call runs/my-episode run_tests --episode my-episode --note "..."
 
@@ -154,10 +164,15 @@ cat results/results.md
 # Against a different task in harness/task_registry.py (e.g. the C1 task):
 python -m eval.run_experiment --n 5 --task-id bugfix_restock_exact_match
 
-# generalization_contact_index is held out (TASK_SUITE_DESIGN.md C6): run
-# it only to measure generalization, never while iterating on prompts -
-# its wording and bug shape must stay unseen during development.
+# generalization_contact_index and notes_tag_rename_generalization are
+# both held out (TASK_SUITE_DESIGN.md C6; CHANGELOG's Phase 5): run them
+# only to measure generalization, never while iterating on prompts - their
+# wording and bug shape must stay unseen during development.
 python -m eval.run_experiment --n 3 --task-id generalization_contact_index --run-id generalization-check
+python -m eval.run_experiment --n 3 --task-id notes_tag_rename_generalization --run-id generalization-check-2
+
+# Any of the ten tasks added in Phase 5 works the same way, e.g.:
+python -m eval.run_experiment --n 5 --task-id ledger_transfer_rollback
 ```
 
 Expected: `results/results.json` and `results/results.md` are overwritten

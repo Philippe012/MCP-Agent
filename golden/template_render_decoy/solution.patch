@@ -1,0 +1,20 @@
+--- a/src/templating/render.py
++++ b/src/templating/render.py
+@@
+-        key = template[start + 2:end]
++        key = template[start + 2:end].strip()
+         if key in context:
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from templating.render import render
++
++
++def test_placeholder_with_surrounding_whitespace_is_substituted():
++    assert render("Hello {{ name }}!", {"name": "Ada"}) == "Hello Ada!"
+
+Note: legacy_render.py (the decoy) is intentionally untouched by this
+patch - it is never imported by the application and fixing it would not
+change any observable behavior. Its presence in the workspace is a
+trajectory-efficiency signal only; see harness/task_registry.py's
+template_render_decoy entry.

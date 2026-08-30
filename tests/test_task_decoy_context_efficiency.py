@@ -24,8 +24,8 @@ def seeded_workspace(tmp_path):
 
 def test_seed_workspace_contains_the_decoy_alongside_the_real_bug(seeded_workspace):
     names = {p.relative_to(seeded_workspace).as_posix() for p in seeded_workspace.rglob("*") if p.is_file()}
-    assert "src/mcp_rl_env/inventory.py" in names
-    assert "src/mcp_rl_env/legacy_search.py" in names
+    assert "src/mcp_agent_benchmark/inventory.py" in names
+    assert "src/mcp_agent_benchmark/legacy_search.py" in names
     assert not any("golden" in n for n in names)
     assert "tests/test_task_regression.py" not in names
 
@@ -34,7 +34,7 @@ def test_editing_only_the_decoy_never_fixes_anything(seeded_workspace):
     # A "fix" applied to the decoy instead of the real file must leave the
     # actual bug (and reward) exactly where the unfixed seed left it - the
     # verifier must have no way to observe the decoy at all.
-    decoy = seeded_workspace / "src" / "mcp_rl_env" / "legacy_search.py"
+    decoy = seeded_workspace / "src" / "mcp_agent_benchmark" / "legacy_search.py"
     decoy.write_text("def find_products(products, query):\n    return list(dict.fromkeys(products))\n", encoding="utf-8")
 
     unfixed_report = verify_workspace(seeded_workspace, task_id=TASK_ID)
@@ -42,8 +42,8 @@ def test_editing_only_the_decoy_never_fixes_anything(seeded_workspace):
 
 
 def test_verifier_scores_the_real_fix_plus_regression_test_at_full_reward(seeded_workspace):
-    fixed = (REPO_ROOT / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8")
-    (seeded_workspace / "src" / "mcp_rl_env" / "inventory.py").write_text(fixed, encoding="utf-8")
+    fixed = (REPO_ROOT / "src" / "mcp_agent_benchmark" / "inventory.py").read_text(encoding="utf-8")
+    (seeded_workspace / "src" / "mcp_agent_benchmark" / "inventory.py").write_text(fixed, encoding="utf-8")
 
     regression = seeded_workspace / "tests" / "test_task_regression.py"
     regression.write_text(

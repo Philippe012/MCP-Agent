@@ -1,0 +1,22 @@
+--- a/src/pricing/cart.py
++++ b/src/pricing/cart.py
+@@
+     def total_with_discount_cents(self, discount_percent: int) -> int:
+-        total = 0
+-        for item in self.items:
+-            line = item.unit_price_cents * item.quantity
+-            discounted_line = line * (100 - discount_percent)
+-            total += (discounted_line + 50) // 100
+-        return total
++        subtotal = self.subtotal_cents()
++        discounted = subtotal * (100 - discount_percent)
++        return (discounted + 50) // 100
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from pricing.cart import Cart, LineItem
++
++
++def test_four_item_discount_rounds_once_on_the_subtotal():
++    cart = Cart([LineItem("X", 7, 1) for _ in range(4)])
++    assert cart.total_with_discount_cents(20) == 22

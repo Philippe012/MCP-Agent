@@ -1,15 +1,26 @@
 # Task suite design review
 
-**Status: implemented.** Everything Section 13 recommends is now built -
-see `CHANGELOG.md`'s "Phase 3" entry for exactly what was added and the
-evidence gathered while building it (including one real leakage bug this
-design's own registry refactor surfaced and fixed). This document is kept
-as-written below: it's the design record, not updated after the fact to
-match what shipped - where implementation diverged from the plan (there
-was one: `eval/reward_replication.py` uses a `python -c` behavioral check
-inline rather than a task.md an agent would ever see, since C5 was never
-meant to be agent-facing), that's called out in the CHANGELOG entry
-instead of silently edited in here.
+**Status: implemented, then expanded.** Everything Section 13 recommends
+is now built - see `CHANGELOG.md`'s "Phase 3" entry for exactly what was
+added and the evidence gathered while building it (including one real
+leakage bug this design's own registry refactor surfaced and fixed). This
+document is kept as-written below: it's the design record, not updated
+after the fact to match what shipped - where implementation diverged from
+the plan (there was one: `eval/reward_replication.py` uses a `python -c`
+behavioral check inline rather than a task.md an agent would ever see,
+since C5 was never meant to be agent-facing), that's called out in the
+CHANGELOG entry instead of silently edited in here.
+
+A later pass added ten more tasks on top of the six this document
+designs (5 registered + C5's fixture = the "5 tasks" a subsequent review
+counted), bringing the registry to 15 - see `CHANGELOG.md`'s "Phase 5"
+entry for that expansion's own capability mapping, verification, and
+rejected candidates. The design *principles* below (Section 1's registry
+requirement, Section 6's three non-negotiable properties, Section 10's
+"what must not change") were followed unchanged for every one of the ten;
+they are not re-litigated in a second design document, and this section
+is the only place Phase 5 is mentioned in this file, by the same policy
+stated above.
 
 This was originally a design document, not an implementation. No new
 task, seed repository, or verifier logic was added by this file when it

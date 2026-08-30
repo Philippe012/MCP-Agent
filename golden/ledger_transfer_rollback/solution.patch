@@ -1,0 +1,29 @@
+--- a/src/ledger/account.py
++++ b/src/ledger/account.py
+@@
+     def transfer(self, from_id: str, to_id: str, amount: int) -> None:
+         if amount <= 0:
+             raise ValueError("transfer amount must be positive")
+         source = self.accounts[from_id]
+         if source.balance < amount:
+             raise ValueError("insufficient funds")
++        if to_id not in self.accounts:
++            raise KeyError(f"unknown destination account {to_id!r}")
+         self.accounts[from_id] = replace(source, balance=source.balance - amount)
+         dest = self.accounts[to_id]
+         self.accounts[to_id] = replace(dest, balance=dest.balance + amount)
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from ledger.account import Account, Ledger
++
++
++def test_failed_transfer_to_unknown_account_leaves_balances_unchanged():
++    ledger = Ledger([Account("A", 100), Account("B", 50)])
++    try:
++        ledger.transfer("A", "ZZZ", 10)
++        assert False, "expected KeyError"
++    except KeyError:
++        pass
++    assert ledger.balance_of("A") == 100
++    assert ledger.total_balance() == 150

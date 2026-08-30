@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mcp-rl-env"
+name = "mcp-agent-benchmark"
 version = "0.1.0"
 dependencies = ["mcp>=1.2,<2"]
 
@@ -12,13 +12,32 @@ dependencies = ["mcp>=1.2,<2"]
 # -e .`-ed, which is how a judge (or eval/run_experiment.py, or a test
 # file) reliably gets `import agents.loop` / `import harness.workspace`
 # to work regardless of current working directory - no sys.path hacks in
-# individual scripts. mcp_rl_env keeps the src/ layout since it's the
-# sandboxed application package, not harness code.
+# individual scripts. Every other package below lives under src/ since
+# each is a sandboxed application package some task's episode workspace
+# operates on, not harness code - one per task domain added in the
+# suite's expansion to 15 tasks (see CHANGELOG's Phase 5 entry). (Renamed
+# from mcp_rl_env: this project does not train or run reinforcement
+# learning against these tasks - see CHANGELOG's rename entry.)
 [tool.setuptools]
-packages = ["mcp_rl_env", "agents", "harness", "eval"]
+packages = [
+    "mcp_agent_benchmark", "contact_index", "agents", "harness", "eval",
+    "ledger", "scheduler", "configloader", "batch", "cache", "templating",
+    "pricing", "notes", "shipping", "deps",
+]
 
 [tool.setuptools.package-dir]
-mcp_rl_env = "src/mcp_rl_env"
+mcp_agent_benchmark = "src/mcp_agent_benchmark"
+contact_index = "src/contact_index"
+ledger = "src/ledger"
+scheduler = "src/scheduler"
+configloader = "src/configloader"
+batch = "src/batch"
+cache = "src/cache"
+templating = "src/templating"
+pricing = "src/pricing"
+notes = "src/notes"
+shipping = "src/shipping"
+deps = "src/deps"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
