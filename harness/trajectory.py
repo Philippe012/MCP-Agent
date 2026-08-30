@@ -1,14 +1,3 @@
-"""Trajectory recording shared by every episode (manual or automated).
-
-The hackathon submission requirements ask for trajectories that are "easy
-to follow from the agent instructions through to the final result",
-showing what each tool returned, the feedback that shaped the next step,
-and any retries or human checkpoints. A raw chat/tool-call dump does not
-satisfy that on its own, so every recorded step carries a short `note`
-explaining *why* the agent took it and what the previous tool response
-told it - the recorder enforces this by making `note` a required field.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -31,6 +20,11 @@ class Trajectory:
     started_at: str = field(default_factory=_now)
     steps: list[dict] = field(default_factory=list)
     checkpoints: list[dict] = field(default_factory=list)
+    # Distinguishes "the model decided it was done" (False) from "the loop
+    # hit max_turns and cut the episode off" (True) - without this, both
+    # look identical downstream and get silently conflated in any
+    # success/failure statistics across episodes.
+    truncated_by_max_turns: bool = False
     _t0: float = field(default_factory=time.monotonic, repr=False)
 
     def step(
@@ -56,6 +50,7 @@ class Trajectory:
         if not note:
             raise ValueError("every trajectory step must carry a reasoning note")
         result_str = result if isinstance(result, str) else json.dumps(result, default=str)
+        cap = 8000 if tool == "run_tests" else 2000  # pytest failure output easily exceeds 2000 chars
         self.steps.append(
             {
                 "index": len(self.steps),
@@ -65,7 +60,7 @@ class Trajectory:
                 "tool": tool,
                 "args": args,
                 "success": success,
-                "result_preview": result_str[:2000],
+                "result_preview": result_str[:cap],
                 "note": note,
                 "retry_of": retry_of,
             }
@@ -86,8 +81,8 @@ class Trajectory:
         )
 
     def finish(self, verdict: dict) -> dict:
-        self.verdict = verdict  # type: ignore[attr-defined]
-        self.finished_at = _now()  # type: ignore[attr-defined]
+        self.verdict = verdict  
+        self.finished_at = _now()  
         return self.to_dict()
 
     def to_dict(self) -> dict:
@@ -103,6 +98,7 @@ class Trajectory:
             "verdict": getattr(self, "verdict", None),
             "tool_call_count": len(self.steps),
             "retry_count": sum(1 for s in self.steps if s["retry_of"] is not None),
+            "truncated_by_max_turns": self.truncated_by_max_turns,
         }
         return d
 
@@ -118,10 +114,18 @@ class Trajectory:
         )
         t.steps = data["steps"]
         t.checkpoints = data["checkpoints"]
+        t.truncated_by_max_turns = data.get("truncated_by_max_turns", False)
+        # _t0 otherwise resets to "now", making `t` jump backward on every
+        # step recorded after a load() - mcp_call.py loads, appends one
+        # step, saves, and exits per invocation, so this runs on every step
+        # of every manually-driven episode. Anchoring to the last step's
+        # `t` keeps it monotonically increasing across process boundaries.
+        last_t = t.steps[-1]["t"] if t.steps else 0.0
+        t._t0 = time.monotonic() - last_t
         if data.get("verdict") is not None:
-            t.verdict = data["verdict"]  # type: ignore[attr-defined]
+            t.verdict = data["verdict"] 
         if data.get("finished_at") is not None:
-            t.finished_at = data["finished_at"]  # type: ignore[attr-defined]
+            t.finished_at = data["finished_at"]  
         return t
 
     def save(self, out_dir: Path) -> tuple[Path, Path]:
@@ -141,6 +145,7 @@ class Trajectory:
             f"- **Task**: {self.task}",
             f"- **Started**: {self.started_at}",
             f"- **Finished**: {getattr(self, 'finished_at', None)}",
+            f"- **Ended because**: {'hit max_turns (cut off)' if self.truncated_by_max_turns else 'model decided it was done'}",
             "",
             "## Steps",
             "",

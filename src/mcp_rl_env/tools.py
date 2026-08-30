@@ -1,17 +1,3 @@
-"""Pure, root-parametrized implementations of the repository tools.
-
-These functions are the single source of truth for what "list_files",
-"read_file", "search_code", "write_file", "run_tests" and "git_diff" actually
-do. `server.py` wraps them as MCP tools for a live agent session; the
-evaluation harness in `harness/` calls them directly (no MCP transport
-needed) so that a manually-driven or scripted episode behaves identically to
-one driven through a real MCP client.
-
-Keeping this logic in one place means there is no drift between "what the
-MCP server does" and "what the benchmark harness measured" - an important
-property for a reproducible, judge-runnable evaluation.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -46,7 +32,7 @@ def search_code(root: Path, query: str) -> list[str]:
     """Find repository files containing a case-sensitive query."""
     matches = []
     for path in root.rglob("*.py"):
-        if any(part in {".venv", "__pycache__"} for part in path.parts):
+        if any(part in IGNORED_DIR_PARTS for part in path.parts):
             continue
         text = path.read_text(encoding="utf-8")
         if query in text:

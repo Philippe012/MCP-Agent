@@ -7,6 +7,19 @@ name = "mcp-rl-env"
 version = "0.1.0"
 dependencies = ["mcp>=1.2,<2"]
 
+# agents/, harness/, and eval/ live at the repo root (not under src/) and
+# need to be importable from anywhere once this project is `pip install
+# -e .`-ed, which is how a judge (or eval/run_experiment.py, or a test
+# file) reliably gets `import agents.loop` / `import harness.workspace`
+# to work regardless of current working directory - no sys.path hacks in
+# individual scripts. mcp_rl_env keeps the src/ layout since it's the
+# sandboxed application package, not harness code.
+[tool.setuptools]
+packages = ["mcp_rl_env", "agents", "harness", "eval"]
+
+[tool.setuptools.package-dir]
+mcp_rl_env = "src/mcp_rl_env"
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 # "runs" holds ephemeral, gitignored per-episode agent workspaces

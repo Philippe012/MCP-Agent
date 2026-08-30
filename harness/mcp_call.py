@@ -1,26 +1,3 @@
-"""One-shot CLI: make exactly one real MCP tool call against an episode
-workspace, print the result, and (optionally) append it to that episode's
-trajectory file.
-
-Why this exists: a live coding-agent turn is naturally one decision at a
-time - read something, think about what it means, decide the next call.
-This CLI lets a human-in-the-loop or manually-driven agent session issue
-genuine MCP tool calls one at a time (each a fresh, short-lived client
-connection to the real server.py over real stdio transport) while still
-producing the exact same trajectory record format the automated
-`agents/*.py` loop produces. It is not a shortcut around MCP: every call
-here goes through mcp.client.stdio -> server.py -> tools.py, identically to
-an autonomous agent.
-
-Usage:
-  python -m harness.mcp_call <workspace> <tool> [key=value ...]
-      --episode ID --agent baseline|advanced --model "..." --task "..."
-      --note "reasoning for this step" [--retry-of N] [--out-dir DIR]
-
-  # mark the episode finished and score it:
-  python -m harness.mcp_call <workspace> --finish --episode ID [--out-dir DIR]
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -29,7 +6,7 @@ import json
 import time
 from pathlib import Path
 
-from harness.mcp_client import MCPToolSession
+from harness.mcp_client import MCPToolError, MCPToolSession
 from harness.trajectory import Trajectory
 from harness.verifier import verify_workspace
 
@@ -72,6 +49,9 @@ def main() -> int:
     ap.add_argument("--auto", action="store_true")
     args = ap.parse_args()
 
+    if args.finish and args.checkpoint:
+        ap.error("--finish and --checkpoint are mutually exclusive")
+
     workspace = Path(args.workspace)
     out_dir = Path(args.out_dir)
     json_path = out_dir / f"{args.episode}.json"
@@ -111,7 +91,7 @@ def main() -> int:
     try:
         result = asyncio.run(_call(workspace, args.tool, kwargs))
         error = None
-    except Exception as exc:  # noqa: BLE001 - we want to record real tool failures too
+    except MCPToolError as exc:
         result = None
         error = str(exc)
     duration_s = time.monotonic() - start

@@ -12,9 +12,11 @@ human-approval checkpoint before the episode is allowed to finish.
 from __future__ import annotations
 
 import asyncio
+import argparse
 from pathlib import Path
 
-from agents.loop import run_agent_episode
+from agents.loop import DEFAULT_MODEL, run_agent_episode
+from harness.workspace import make_episode_workspace
 
 SYSTEM_PROMPT = """You are a coding agent working in a small software repository.
 You have tools to list files, read files, search code, write files, run the
@@ -56,15 +58,9 @@ async def run(workspace: Path, episode_id: str, trajectory_out_dir: Path, task_p
 
 
 if __name__ == "__main__":
-    import argparse
-    import sys
-
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from harness.workspace import make_episode_workspace
-
     ap = argparse.ArgumentParser()
     ap.add_argument("--episode", default="advanced-auto-01")
-    ap.add_argument("--model", default="claude-opus-5")
+    ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--task-file", default="tasks/bugfix_inventory/task.md")
     ap.add_argument("--out-dir", default="trajectories/advanced")
     ap.add_argument("--interactive-approval", action="store_true")

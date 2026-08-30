@@ -1,15 +1,7 @@
-"""Thin async MCP stdio client that drives the real server.py.
-
-This is what the automated agents in agents/ use: it spawns
-`python -m mcp_rl_env.server` as a subprocess pointed at one episode's
-workspace (via the MCP_RL_ENV_ROOT env var) and exposes an
-`await call(tool_name, **kwargs)` coroutine over the real MCP protocol -
-the same transport a production MCP-aware coding agent would use, not a
-shortcut that calls the tool functions in-process.
-"""
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import AsyncExitStack
 from pathlib import Path
 import json
@@ -19,6 +11,22 @@ from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+# The project already hit one real stdio deadlock (CHANGELOG item 3) - a
+# hard timeout here means a future hang fails fast instead of blocking the
+# harness indefinitely again.
+MCP_CALL_TIMEOUT_S = 30
+
+
+class MCPToolError(RuntimeError):
+    """A tool call reached the real MCP server and the server reported a
+    genuine failure (result.isError) - e.g. a path escaping the sandbox, a
+    file that doesn't exist. Callers that want to treat "the environment
+    failed" as meaningful signal (recovery-rate metrics, retry logic)
+    should catch this specifically, not a bare Exception - anything else
+    (a transport error, a bug in this client) is a harness problem and
+    should propagate and crash loudly instead of being recorded as if the
+    agent had encountered a normal tool failure."""
 
 
 class MCPToolSession:
@@ -37,7 +45,7 @@ class MCPToolSession:
         )
         read, write = await self._stack.enter_async_context(stdio_client(params))
         self.session = await self._stack.enter_async_context(ClientSession(read, write))
-        await self.session.initialize()
+        await asyncio.wait_for(self.session.initialize(), timeout=MCP_CALL_TIMEOUT_S)
         return self
 
     async def __aexit__(self, *exc):
@@ -51,17 +59,14 @@ class MCPToolSession:
 
     async def call(self, tool: str, **kwargs):
         """Call an MCP tool and return a JSON-decodable Python value.
-
-        A tool that returns a Python list (list_files, search_code) comes
-        back from FastMCP as one TextContent block per list element, not
-        one block holding a JSON array - so every block must be collected,
-        not just the first.
         """
         assert self.session
-        result = await self.session.call_tool(tool, arguments=kwargs)
+        result = await asyncio.wait_for(
+            self.session.call_tool(tool, arguments=kwargs), timeout=MCP_CALL_TIMEOUT_S
+        )
         if result.isError:
             text = "\n".join(getattr(c, "text", str(c)) for c in result.content)
-            raise RuntimeError(f"tool `{tool}` returned an error: {text}")
+            raise MCPToolError(f"tool `{tool}` returned an error: {text}")
         texts = [getattr(c, "text", None) for c in result.content]
         texts = [t for t in texts if t is not None]
         if not texts:

@@ -1,21 +1,3 @@
-"""Build isolated, single-use episode workspaces from the task seed.
-
-Every baseline/advanced episode gets its own temp directory containing only
-what a real engineer opening this repo for the first time would have: the
-buggy source, the pre-existing tests, and the task statement. It deliberately
-does NOT include verify.py, golden/solution.patch, apply_golden.py, or any
-harness/agents/eval code - those are the evaluator's private oracle and the
-benchmark tooling, not part of the sandboxed repo the agent operates in.
-(Earlier the whole repo was exposed to the agent through list_files/
-read_file, which meant an agent could simply read verify.py and see the
-exact acceptance assertions. Excluding the oracle from the copied workspace
-closes that leak - see CHANGELOG.md.)
-
-Each workspace is a real git repository (one commit, the seed state) so the
-agent's `git_diff` tool produces a meaningful diff, and so the harness can
-capture the agent's final patch losslessly for the trajectory record.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,9 +13,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # src/mcp_rl_env/server.py and tools.py - those implement the MCP
 # environment itself (harness plumbing), not the inventory service the
 # task is about, so the agent never sees them as part of "the repository".
+# inventory.py itself isn't listed here - it gets written directly below
+# from the buggy seed, so copying the fixed version first would be wasted
+# work.
 _SEED_INCLUDE = [
     "src/mcp_rl_env/__init__.py",
-    "src/mcp_rl_env/inventory.py",
     "tests/test_inventory.py",
     "tasks",
     "requirements.txt",

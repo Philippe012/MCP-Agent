@@ -1,13 +1,3 @@
-"""Tests for the evaluation harness itself (workspace seeding, the
-verifier, and trajectory recording). None of these need an Anthropic API
-key or a network connection - they are what CI runs to prove the
-benchmark scaffold is sound even where the live-LLM episodes cannot be.
-
-Run with: pytest tests/test_harness.py -q
-(requires the repo root on sys.path; `pytest -q` from the repo root does
-this automatically via pyproject.toml's pythonpath, but harness/ itself is
-not under src/, so these tests add the repo root explicitly.)
-"""
 
 from __future__ import annotations
 
@@ -34,23 +24,18 @@ def seeded_workspace(tmp_path):
 
 def test_seed_workspace_contains_only_sandboxed_files(seeded_workspace):
     names = {p.relative_to(seeded_workspace).as_posix() for p in seeded_workspace.rglob("*") if p.is_file()}
-    # The buggy inventory module and its package must be present...
     assert "src/mcp_rl_env/inventory.py" in names
     assert "src/mcp_rl_env/__init__.py" in names
-    # ...but the harness/environment's own implementation must NOT leak in -
-    # the agent should never be able to read the MCP server's own source or
-    # the private verifier as part of "the repository".
     assert "src/mcp_rl_env/server.py" not in names
     assert "src/mcp_rl_env/tools.py" not in names
     assert not any(n.startswith("verify.py") for n in names)
     assert not any("golden" in n for n in names)
-    # The regression test is the agent's job to add - it must not pre-exist.
     assert "tests/test_task_regression.py" not in names
 
 
 def test_seed_workspace_has_the_real_bug(seeded_workspace):
     text = (seeded_workspace / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8")
-    assert "for tag in product.tags" in text  # the buggy double-append loop shape
+    assert "for tag in product.tags" in text 
 
 
 def test_seed_workspace_is_a_git_repo_with_one_commit(seeded_workspace):
@@ -69,7 +54,7 @@ def test_verifier_scores_unfixed_seed_below_full_reward(seeded_workspace):
 
 def test_verifier_scores_a_correct_fix_plus_regression_test_at_full_reward(seeded_workspace):
     fixed = (REPO_ROOT / "golden" / "solution.patch").exists()
-    assert fixed  # sanity: the golden patch this test mirrors actually exists
+    assert fixed  
 
     inventory = seeded_workspace / "src" / "mcp_rl_env" / "inventory.py"
     inventory.write_text(
@@ -90,13 +75,6 @@ def test_verifier_scores_a_correct_fix_plus_regression_test_at_full_reward(seede
 
 
 def test_verifier_rejects_a_vacuous_regression_test(seeded_workspace):
-    """A prior version of the verifier checked the regression test file's
-    text for the keywords "multiple_fields" and "assert" instead of what
-    the test actually does. That was gameable: `assert True` under a name
-    like `test_multiple_fields` matched the keywords while testing nothing.
-    Confirmed empirically before this test was written (see CHANGELOG.md);
-    this test locks the fix in place so the exploit cannot silently reopen.
-    """
     inventory = seeded_workspace / "src" / "mcp_rl_env" / "inventory.py"
     inventory.write_text(
         (REPO_ROOT / "src" / "mcp_rl_env" / "inventory.py").read_text(encoding="utf-8"),
@@ -107,7 +85,37 @@ def test_verifier_rejects_a_vacuous_regression_test(seeded_workspace):
 
     report = verify_workspace(seeded_workspace)
     assert report["regression_test_present"] is False
-    assert report["reward"] == 0.85  # correct fix still credited; the fake test just isn't
+    assert report["reward"] == 0.85
+
+
+def test_seed_include_never_lists_the_answer_shaped_regression_test():
+    # workspace.py already unlinks tests/test_task_regression.py defensively
+    # (test_seed_workspace_contains_only_sandboxed_files covers that), but
+    # this asserts the stronger invariant directly on _SEED_INCLUDE itself,
+    # so a future edit (e.g. "tests/test_inventory.py" -> "tests") can't
+    # silently start copying it in the first place.
+    from harness.workspace import _SEED_INCLUDE
+
+    assert "tests/test_task_regression.py" not in _SEED_INCLUDE
+    assert "tests" not in _SEED_INCLUDE  # a whole-directory include would sweep it in
+
+
+def test_server_refuses_to_start_without_mcp_rl_env_root():
+    import os
+    import subprocess
+
+    env = {k: v for k, v in os.environ.items() if k != "MCP_RL_ENV_ROOT"}
+    env["PYTHONPATH"] = str(REPO_ROOT / "src")
+    proc = subprocess.run(
+        [sys.executable, "-m", "mcp_rl_env.server"],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        env=env,
+        timeout=15,
+    )
+    assert proc.returncode != 0
+    assert "MCP_RL_ENV_ROOT" in proc.stderr
 
 
 def test_trajectory_requires_a_reasoning_note():

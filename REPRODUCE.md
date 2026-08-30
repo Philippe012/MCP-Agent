@@ -10,8 +10,9 @@ manually-driven episodes rather than automated ones).
 ## Versions used
 
 - Python 3.12.3 (Windows; any CPython >= 3.10 should work - `mcp` requires 3.10+)
-- `mcp` 1.29.1, `pytest` 8.4.2 (pinned ranges in `requirements.txt`)
-- `anthropic` >= 0.68, < 1 (only for Part 3; `requirements-agents.txt`)
+- `mcp` 1.29.1, `pytest` 8.4.2, `anthropic` >= 0.68, < 1 (pinned ranges in
+  `requirements.txt`; `anthropic` is only exercised by Part 3, but is now
+  installed alongside the rest by `pip install -r requirements.txt`)
 - Model for the live agent harness: `claude-opus-5` (default in `agents/*.py`;
   the two committed reference trajectories were produced by `claude-sonnet-5`
   acting as a manually-driven agent - see trajectories/README.md)
@@ -22,15 +23,21 @@ manually-driven episodes rather than automated ones).
 git clone <this repo> && cd mcp_rl_env_seed_export
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
-pip install -r requirements.txt      # installs `mcp` and `pytest`; ~10s
-pytest -q                            # 11 passed, ~10s
+pip install -r requirements.txt      # installs mcp, pytest, anthropic; ~15s
+pip install -e .                     # makes agents/, harness/, eval/, mcp_rl_env importable
+                                      # from any cwd, e.g. `python agents/baseline_agent.py`
+                                      # directly - see CHANGELOG's Phase 1 entry
+pytest -q                            # 12 passed, ~10s
 ```
 
-Expected output: `11 passed in ~10s`. These tests cover both the original
-inventory-service unit tests and `tests/test_harness.py` (episode
+Expected output: `12 passed in ~10s`. These tests cover the original
+inventory-service unit tests, `tests/test_harness.py` (episode
 isolation, the seeded bug, the verifier's scoring in both directions
 including its rejection of a vacuous regression test - see CHANGELOG item
-10 - and trajectory recording) - none need network access.
+10 - and trajectory recording), and `tests/test_tool_schema_parity.py`
+(connects to the real MCP server and checks it against
+`agents/tool_schemas.py` - see CHANGELOG's Phase 1 entry) - none need
+network access.
 
 ```bash
 python verify.py
@@ -99,8 +106,11 @@ python -m eval.trajectory_metrics trajectories/advanced/my-episode.json
 
 ## Part 3 - run the automated N-episode harness (needs `ANTHROPIC_API_KEY`)
 
+`anthropic` is already installed from Part 1's `pip install -r requirements.txt`
+(it now covers `agents`/`eval` too, not just the environment itself) - all
+this part needs is the key:
+
 ```bash
-pip install -r requirements-agents.txt
 export ANTHROPIC_API_KEY=sk-ant-...          # Windows PowerShell: $env:ANTHROPIC_API_KEY = "sk-ant-..."
 
 # One episode of each policy:

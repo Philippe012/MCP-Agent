@@ -1,8 +1,8 @@
-"""Anthropic tool-use JSON schemas for the six MCP tools exposed by
-src/mcp_rl_env/server.py. Defined by hand (rather than generated from the
-MCP tool listing at connect time) so the schemas are explicit and the
-manual agentic loop in agents/loop.py has no hidden dependency on how
-FastMCP happens to describe its own tools.
+"""Anthropic tool-use schemas for the six MCP tools.
+
+Defined manually so the agent loop does not depend on FastMCP's tool
+descriptions. tests/test_tool_schema_parity.py checks these stay in sync
+with what the real MCP server actually exposes.
 """
 
 TOOLS = [

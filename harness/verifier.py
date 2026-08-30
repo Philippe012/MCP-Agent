@@ -1,12 +1,3 @@
-"""Score an episode workspace with the repository's private verifier.
-
-Deliberately imports verify.py from the real repo root (not from the
-episode workspace, which never contains it) so there is exactly one
-implementation of the reward function shared by `python verify.py`, this
-harness, and every episode - the model is graded by the same oracle no
-matter how it is invoked.
-"""
-
 from __future__ import annotations
 
 import importlib.util

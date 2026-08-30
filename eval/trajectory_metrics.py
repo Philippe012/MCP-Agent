@@ -1,17 +1,3 @@
-"""Compute trajectory-level metrics from a saved trajectory JSON file.
-
-The verifier's reward is the authoritative correctness signal; this is
-complementary evidence about *how* an episode got there - useful for
-studying tool-use behavior (planning, retries, recovery) separately from
-whether the final repository state happened to be correct. Every number
-here is read directly off the trajectory file - nothing is estimated or
-inferred about the model's internal reasoning.
-
-Usage:
-    python -m eval.trajectory_metrics trajectories/advanced/manual-advanced-01.json
-    python -m eval.trajectory_metrics trajectories/**/*.json   # summarize several
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -29,6 +15,11 @@ def compute(trajectory: dict) -> dict:
     failures = [s for s in steps if not s.get("success", True)]
     retries = [s for s in steps if s.get("retry_of") is not None]
     durations = [s["duration_s"] for s in steps if s.get("duration_s") is not None]
+    # A later step's retry_of must actually point at a specific failure's
+    # index - co-occurrence of "some failure" and "some retry" anywhere in
+    # the episode isn't evidence they're related.
+    retry_targets = {s["retry_of"] for s in steps if s.get("retry_of") is not None}
+    recovered_from_failure = any(f["index"] in retry_targets for f in failures)
 
     return {
         "episode_id": trajectory["episode_id"],
@@ -40,7 +31,7 @@ def compute(trajectory: dict) -> dict:
         ),
         "failed_call_count": len(failures),
         "retry_count": len(retries),
-        "recovered_from_failure": len(failures) > 0 and len(retries) > 0,
+        "recovered_from_failure": recovered_from_failure,
         "checkpoint_count": len(trajectory.get("checkpoints", [])),
         "total_tool_time_s": round(sum(durations), 3) if durations else None,
         "reward": (trajectory.get("verdict") or {}).get("reward"),
@@ -58,8 +49,11 @@ def main() -> int:
         files.extend(Path(p) for p in (matched or [pattern]))
 
     for path in files:
-        trajectory = json.loads(path.read_text(encoding="utf-8"))
-        print(json.dumps(compute(trajectory), indent=2))
+        try:
+            trajectory = json.loads(path.read_text(encoding="utf-8"))
+            print(json.dumps(compute(trajectory), indent=2))
+        except (OSError, json.JSONDecodeError, KeyError) as exc:
+            print(json.dumps({"error": str(exc), "file": str(path)}))
 
     return 0
 

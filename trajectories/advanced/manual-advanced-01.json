@@ -9,7 +9,7 @@
     {
       "index": 0,
       "at": "2026-08-28T15:30:27+00:00",
-      "t": 0.969,
+      "t": 1.0,
       "tool": "read_file",
       "args": {
         "path": "tasks/bugfix_inventory/task.md"
@@ -21,7 +21,7 @@
     {
       "index": 1,
       "at": "2026-08-28T15:30:37+00:00",
-      "t": 1.219,
+      "t": 11.0,
       "tool": "list_files",
       "args": {},
       "result_preview": "[\"pyproject.toml\", \"requirements.txt\", \"src\\\\mcp_rl_env\\\\__init__.py\", \"src\\\\mcp_rl_env\\\\inventory.py\", \"tasks\\\\bugfix_inventory\\\\task.md\", \"tests\\\\test_inventory.py\"]",
@@ -31,7 +31,7 @@
     {
       "index": 2,
       "at": "2026-08-28T15:30:40+00:00",
-      "t": 1.015,
+      "t": 14.0,
       "tool": "read_file",
       "args": {
         "path": "src/mcp_rl_env/inventory.py"
@@ -43,7 +43,7 @@
     {
       "index": 3,
       "at": "2026-08-28T15:30:42+00:00",
-      "t": 0.938,
+      "t": 16.0,
       "tool": "read_file",
       "args": {
         "path": "tests/test_inventory.py"
@@ -55,7 +55,7 @@
     {
       "index": 4,
       "at": "2026-08-28T15:30:59+00:00",
-      "t": 1.218,
+      "t": 33.0,
       "tool": "write_file",
       "args": {
         "path": "src/mcp_rl_env/inventory.py",
@@ -68,7 +68,7 @@
     {
       "index": 5,
       "at": "2026-08-28T15:31:02+00:00",
-      "t": 2.093,
+      "t": 36.0,
       "tool": "run_tests",
       "args": {},
       "result_preview": "{\"returncode\": 0, \"stdout\": \"..                                                                       [100%]\\n2 passed in 0.05s\\n\", \"stderr\": \"\"}",
@@ -78,7 +78,7 @@
     {
       "index": 6,
       "at": "2026-08-28T15:31:28+00:00",
-      "t": 1.187,
+      "t": 62.0,
       "tool": "write_file",
       "args": {
         "path": "tests/test_task_regression.py",
@@ -91,7 +91,7 @@
     {
       "index": 7,
       "at": "2026-08-28T15:31:32+00:00",
-      "t": 1.891,
+      "t": 66.0,
       "tool": "run_tests",
       "args": {},
       "result_preview": "{\"returncode\": 0, \"stdout\": \"...                                                                      [100%]\\n3 passed in 0.04s\\n\", \"stderr\": \"\"}",
@@ -101,7 +101,7 @@
     {
       "index": 8,
       "at": "2026-08-28T15:31:42+00:00",
-      "t": 1.281,
+      "t": 76.0,
       "tool": "git_diff",
       "args": {},
       "result_preview": "diff --git a/src/mcp_rl_env/inventory.py b/src/mcp_rl_env/inventory.py\nindex effa2d8..3cfde45 100644\n--- a/src/mcp_rl_env/inventory.py\n+++ b/src/mcp_rl_env/inventory.py\n@@ -22,10 +22,10 @@ class InventoryService:\n         results: list[Product] = []\n \n         for product in self.products:\n-            if query in product.name.lower():\n+            matched = query in product.name.lower()\n+            if not matched:\n+                matched = any(query in tag.lower() for tag in product.tags)\n+            if matched:\n                 results.append(product)\n-            for tag in product.tags:\n-                if query in tag.lower():\n-                    results.append(product)\n \n         return results\n",
@@ -111,7 +111,7 @@
   ],
   "checkpoints": [
     {
-      "t": 0.0,
+      "t": 91.0,
       "kind": "finalize",
       "message": "All 6 requirements checked: fix is minimal and localized, 3/3 tests pass including the new regression test, git_diff reviewed and confirmed clean. NOTE: git_diff only shows changes to files already tracked by git, so it did NOT surface the new tests/test_task_regression.py file (untracked) - a reviewer relying on git_diff alone would miss that a new test was even added. Cross-checked against run_tests output (3 passed, up from 2) instead. Requesting approval to finish.",
       "approved": true,
@@ -127,5 +127,6 @@
     "stdout": "...                                                                      [100%]\n3 passed in 0.02s\n\nDETERMINISTIC_BEHAVIOR=PASS\nREGRESSION_TEST=PASS\nREWARD=1.00"
   },
   "tool_call_count": 9,
-  "retry_count": 1
+  "retry_count": 1,
+  "truncated_by_max_turns": false
 }
