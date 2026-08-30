@@ -3,7 +3,23 @@
 Every entry below is a real iteration from this submission's build, in
 order, each triggered by a concrete piece of evidence rather than by
 inspection alone - a hung process, a wrong tool result, a leaked comment,
-a real reward number.
+a real reward number. **Entries are never edited after the fact** - each
+is a dated record of what was true and known at that point. A later entry
+that supersedes an earlier one says so explicitly instead of the earlier
+one being silently rewritten.
+
+## Contents
+
+| Phase | What it covers |
+|---|---|
+| [Items 1-12](#1-the-repo-held-the-answer-not-a-benchmark) | Building the benchmark from a single hardcoded task to a real, isolated, verifiable environment - workspace isolation, the MCP client, the automated harness, the first genuine tool-failure-and-recovery episode |
+| [Phase 1](#phase-1---hardening-agents-external-review-pass) | External review hardening of `agents/` and the full repo - security (no silent fallback to the real repo), correctness, reproducibility |
+| [Phase 2](#phase-2---flagship-experiment-reward-hacking--specification-gaming) | The flagship reward-hacking experiment formalized into `eval/reward.py` and `RESEARCH.md` |
+| [Items 13-14](#13-evalreward-crashed-the-second-time-it-was-run-on-windows) | A Windows cleanup bug and a self-overwriting golden-fixture bug, both found by actually re-running the reproduction steps |
+| [Phase 3](#phase-3---task-suite-registry--four-new-tasks-task_suite_designmd) | The task registry, per-task golden directories, fault injection, and the first 5 tasks beyond `bugfix_inventory` |
+| [Phase 4](#phase-4---final-research-quality-gate-the-package-rename-was-half-finished-and-broke-the-documented-reproduction-path) | A half-finished package rename fixed, a second regression-verifier exploit found and left honestly open, a held-out task's wording leakage found and fixed |
+| [Phase 5](#phase-5---task-suite-expansion-5---15-tasks) | Expansion from 5 to 15 tasks, with a full capability map and every rejected candidate |
+| [Phase 6](#phase-6---final-submission-audit-two-cleanup-commits-had-silently-broken-every-tasks-reward) | Pre-submission audit: two "quality" commits had silently broken every task's reward mechanism - found, fixed, and reverified |
 
 ## 1. The repo held the answer, not a benchmark
 

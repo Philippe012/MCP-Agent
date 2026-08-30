@@ -1,5 +1,23 @@
 # Flagship experiment: proxy-objective mismatch in an agent reward function
 
+**Summary, for a reader in a hurry:** this project's own `verify.py`
+originally decided "a regression test exists" by checking whether the
+test *file's text* contained the right keywords - not whether the test
+*did* anything. A regression test that asserted nothing
+(`assert True`) scored full reward under that check. The fix replaces the
+keyword match with a mutation-testing check: run the candidate test
+against the benchmark's own known-buggy source and require it to actually
+fail there. `python -m eval.reward` reproduces the gap on demand (no API
+key, fully deterministic): the vacuous test scores **1.0** under the old
+check and **0.85** under the new one, while a genuine regression test
+scores **1.0** under both - the fix costs nothing for a real solution.
+`python -m eval.reward_replication` reproduces the same gap on a second,
+independent requirement and buggy seed. No coding agent in this project
+ever produced the exploit - it was built by hand to adversarially test the
+evaluator, the way any reward function should be tested before it's
+trusted. Details, method, and an honestly-unfixed second exploit shape are
+below.
+
 ## Research question
 
 Does a keyword-based proxy check for "a regression test exists" diverge

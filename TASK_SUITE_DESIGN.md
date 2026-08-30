@@ -29,6 +29,22 @@ spending engineering effort on it, consistent with how every prior
 addition to this project (see `CHANGELOG.md`) was justified by evidence
 before being written.
 
+## How to read this document
+
+Sections 1-5 are the audit and analysis that came before any design
+decision (what a "task" actually is today, the research baseline, the 11
+candidates considered, why 5 of them were rejected, and a negative-result
+exploit search). Sections 6-9 are the actual specification: the 4 tasks
+recommended, 2 cross-cutting conditions (not tasks) instead of a 5th and
+6th, and a leakage analysis. Sections 10-15 are infrastructure scoping:
+what had to change, what had to stay untouched, what could be run
+immediately vs. what needed the registry first, the final 6-task
+recommendation this document made, the general-purpose-agent properties
+each task measures, and what was deliberately left undecided. See
+`CHANGELOG.md`'s "Phase 3" and "Phase 5" entries for what was actually
+built from this plan and how the later 10-task expansion followed the
+same principles.
+
 ## 1. Infrastructure audit: what a "task" actually is today
 
 The premise of this review has to be checked before anything else: **can

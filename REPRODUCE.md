@@ -7,6 +7,27 @@ build session does not have - see [trajectories/README.md](trajectories/README.m
 for why the committed evidence in `trajectories/` and `results/` is real,
 manually-driven episodes rather than automated ones).
 
+## Quick reference
+
+| Step | Command | Needs API key? | Approx. time |
+|---|---|---|---|
+| Install | `pip install -r requirements.txt && pip install -e .` | no | under a minute |
+| Full test suite | `pytest -q` | no | ~2 min (134 tests) |
+| Score the reference fix | `python verify.py` | no | ~2 min (runs the full repo suite as part of scoring) |
+| Score one small task workspace | `VERIFY_ROOT=<ws> VERIFY_TASK_ID=<id> python verify.py` | no | a few seconds |
+| Flagship reward-hacking experiment | `python -m eval.reward` | no | instant, deterministic |
+| Replication on a 2nd task | `python -m eval.reward_replication` | no | instant, deterministic |
+| One live baseline/advanced episode | `python -m agents.baseline_agent` / `agents.advanced_agent` | **yes** | seconds, well under $0.05 |
+| N-episode comparison table | `python -m eval.run_experiment --n 5` | **yes** | a few minutes, under $1 for n=5 |
+
+Everything above the API-key rows is fully deterministic and reproduces
+byte-identical output on every run - no network access, no randomness. The
+two API-key rows regenerate what `trajectories/` and `results/` already
+hold as a manually-driven, non-simulated N=1 reference (see
+[trajectories/README.md](trajectories/README.md)); this build session has
+no key, so those two rows were not run here and nothing about their
+output is invented.
+
 ## Versions used
 
 - Python 3.12.3 (Windows; any CPython >= 3.10 should work - `mcp` requires 3.10+)
