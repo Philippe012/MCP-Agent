@@ -581,3 +581,250 @@ assumed):**
 this pass, +10 from `test_tools_path_safety.py`'s parametrized read/write
 cases, +2 from `test_seed_include_never_lists_the_answer_shaped_regression_test`
 and `test_server_refuses_to_start_without_mcp_rl_env_root`).
+
+## Phase 2 - Flagship experiment: reward hacking / specification gaming
+
+**Decision:** of the candidate research directions this environment could
+support (tool-use planning, failure recovery, robustness to tool failure,
+generalization, reward hacking), reward hacking was selected as the
+flagship - not for narrative appeal, but because it is the only direction
+already backed by evidence that existed in this codebase before being
+formalized (the vacuous-test exploit found and fixed in item 10, above).
+The others were considered and rejected for this round, each for a
+specific reason recorded in `RESEARCH.md`'s "why this question" section
+rather than a blanket "out of scope."
+
+**What was built:** `eval/reward.py` formalizes the earlier ad hoc probe
+into a permanent, re-runnable, documented experiment comparing the real
+weak evaluator (verbatim `"multiple_fields" in text and "assert" in
+text`, from before item 10) against the real strong evaluator (current
+`verify.py`) across three conditions. `RESEARCH.md` is the full
+write-up: research question, hypothesis, method, results, and - deliberately
+- an explicit section on what this experiment is *not* claiming (no agent
+in this project ever produced the exploit; it was constructed
+adversarially by the evaluator's designer to probe the evaluator, the way
+a reward-function author should test their own reward function).
+
+**Evidence:** `python -m eval.reward` (raw output in
+`experiments/reward_hacking/results.json`) - the vacuous test scores 1.0
+under the weak evaluator and 0.85 under the strong one (the gap); a
+second adversarial condition (a file with no test function, pytest exit
+code 5) is correctly rejected by both, which on inspection is not a
+weak-vs-strong disagreement but confirmation that the strong evaluator's
+`== 1` check (not a looser `!= 0`) is itself robust to a second exploit
+shape - reported as that, not folded into the headline number; the
+genuine regression test scores 1.0 under both, confirming the fix
+introduces no false negative.
+
+**Repository cleanup, same pass:** deleted `benchmark/environments.py`,
+`benchmark/seeds.py`, `benchmark/task_registry.py`,
+`benchmark/task_variants.py`, `eval/aggregate.py`,
+`eval/robustness_metrics.py`, `eval/task_metrics.py` (all empty, no
+experiment behind any of them; `_summarize()` in `eval/run_experiment.py`
+and `eval/trajectory_metrics.py` already cover the aggregation and
+per-trajectory metrics these names implied), and the empty `docs/`
+tree and `experiments/{baseline_vs_advanced,generalization,tool_budget,
+tool_failure}/` directories (no content, no near-term role given the
+scope decision above). Kept `experiments/reward_hacking/` - the one
+directory with an actual experiment behind it.
+
+## 13. `eval.reward` crashed the second time it was run on Windows
+
+**Evidence:** re-running `python -m eval.reward` a second time (to confirm
+the flagship experiment is actually reproducible, not just correct once)
+crashed with `PermissionError: [WinError 5] Access is denied` deleting
+`.git\objects\...` inside a leftover probe workspace under
+`%TEMP%\mcp_rl_env_runs\`.
+
+**Root cause:** `harness/workspace.py::cleanup()` called
+`shutil.rmtree(workspace, ignore_errors=True)`. Git writes `.git/objects/*`
+read-only by design; `shutil.rmtree` does not clear that attribute before
+unlinking, so the delete silently failed and left debris behind -
+`ignore_errors=True` hid the failure instead of surfacing it.
+`make_episode_workspace()`'s own `shutil.rmtree(workspace)` (no
+`ignore_errors`) then crashed outright the next time that same episode ID
+was reused, which `eval/reward.py` and any repeated `eval/run_experiment.py`
+run under a fixed `--run-id` both do.
+
+**Why it matters:** this is a real reproducibility break specific to
+Windows, discovered by actually re-running the reproduction steps
+REPRODUCE.md documents rather than by inspection - exactly the class of bug
+this project's own methodology (RESEARCH.md, item 9's `apply_golden.py`
+finding) argues should be caught by running things, not by reading them.
+
+**Decision:** added `harness/workspace.py::_force_rmtree()`, which clears
+the read-only attribute on every file before deleting, and used it in both
+`make_episode_workspace()` and `cleanup()`. `cleanup()` stays best-effort
+(never raises - it runs in a loop across many episodes in
+`eval/run_experiment.py`) but now prints a warning on the rare remaining
+failure instead of silently hiding it. Locked in with
+`tests/test_harness.py::test_make_episode_workspace_can_reuse_an_episode_id_after_cleanup`.
+
+**Verification:** ran `python -m eval.reward` twice in a row against a real
+temp directory after the fix (the second run exercises the exact
+`_force_rmtree` path that previously crashed) - both runs exit 0 and
+produce byte-identical output, confirming the experiment's own claim of
+determinism actually holds across repeated runs, not just within one.
+Full suite: `pytest -q` -> 25 passed (24 before this fix, +1 new test).
+
+## 14. `apply_golden.py` silently overwrote the tracked golden regression test on every run
+
+**Evidence:** while re-verifying the flagship experiment's reproducibility
+this pass, `git status` after running `python apply_golden.py` - exactly
+the command REPRODUCE.md's Part 1 documents - showed
+`tests/test_task_regression.py` as modified, even though nothing in this
+pass had touched it. Its content had changed to a different function name
+(`test_product_matching_multiple_fields_is_returned_once` vs. the
+committed `test_search_multiple_fields_does_not_duplicate_product`) and a
+different search query (`"r"` vs. `"re"`).
+
+**Root cause:** `apply_golden.py` hardcoded its own copy of the golden
+regression test (`golden_test`) and called
+`regression_path.write_text(golden_test, ...)` unconditionally, every time
+it ran, regardless of whether the tracked file already existed and was
+already correct. That hardcoded copy had drifted from the actual committed
+file at some earlier point (no CHANGELOG entry describes an intentional
+rewording), and every subsequent run of the documented reproduction step
+silently overwrote the real file with the drifted one - a mutable
+evaluation asset, and duplicated logic (two independently-maintained
+copies of "the same" test) that this project's own methodology
+(RESEARCH.md, item 9) argues against.
+
+**Decision:** `main()` now only writes `golden_test` when
+`regression_path` doesn't already exist (the genuine "apply the golden
+solution to a fresh, unfixed seed" case); an existing file is reported as
+present and left untouched. The hardcoded fallback string was also
+corrected to be byte-identical to the real committed file, so the two
+can't drift apart silently again. Restored
+`tests/test_task_regression.py` to its correct committed content (the
+drifted version was never an intentional edit).
+
+**Verification:** `tests/test_apply_golden.py` (new) asserts, via
+monkeypatching `regression_path`: an existing file with sentinel content
+survives a `main()` call unchanged; a missing file gets the fallback
+content written; and the fallback constant is textually identical to the
+real tracked file, so a future edit to one without the other now fails a
+test instead of silently drifting again. Full suite: `pytest -q` -> 28
+passed (25 before this fix, +3 new tests).
+
+## Phase 3 - Task suite: registry + four new tasks (TASK_SUITE_DESIGN.md)
+
+Implements the design reviewed in `TASK_SUITE_DESIGN.md`, in the order
+that document requires: the task registry first (since every new task was
+blocked on it), verified behavior-preserving for `bugfix_inventory` before
+anything else was built on top of it.
+
+**Required infrastructure (Section 10 of the design doc):**
+
+- `harness/task_registry.py` - one `TaskSpec` per task (seed files, the
+  buggy-source mapping, the regression-test path, the behavioral check).
+  `harness/workspace.py::make_episode_workspace` and `verify.py::verify`
+  now take a `task_id` parameter and read from this instead of hardcoding
+  `bugfix_inventory`'s specifics inline. Confirmed behavior-preserving by
+  running the full suite immediately after the refactor with zero other
+  changes: one test failed (`test_seed_include_never_lists_the_answer_shaped_regression_test`,
+  which imported the now-removed `_SEED_INCLUDE` directly - expected, and
+  rewritten below rather than papered over), every other test passed
+  unchanged, and `python verify.py` / `python -m eval.reward` produced
+  identical output to before the refactor (`REWARD=1.00`; `eval.reward`'s
+  JSON byte-identical to the already-committed
+  `experiments/reward_hacking/results.json`).
+- **Fixed a real leakage bug found while writing this refactor**: the
+  original `_SEED_INCLUDE` copied the entire `tasks/` directory into every
+  episode workspace. Harmless with one task; would have leaked every other
+  task's `task.md` into every episode the moment a second task existed.
+  Each `TaskSpec.seed_include` now lists only its own `task.md`. Locked in
+  with two new generalized tests in `tests/test_harness.py`
+  (`test_seed_include_never_lists_the_answer_shaped_regression_test`,
+  rewritten to check every registered task instead of one hardcoded list,
+  and `test_seed_include_never_lists_another_tasks_directory`, new).
+- `golden/solution.patch` moved to `golden/bugfix_inventory/solution.patch`
+  (Section 10, item 2 - per-task golden directories). Its embedded
+  regression-test snippet had itself drifted from the real committed test
+  (same class of bug as item 14's `apply_golden.py` fix) - corrected to
+  match `tests/test_task_regression.py` exactly while moving it.
+- `harness/fault_injection.py` (Section 7) - `FaultInjectingMCPToolSession`
+  wraps a real `MCPToolSession` and deterministically raises `MCPToolError`
+  on a declared (tool, occurrence) pair, otherwise delegating to the real
+  server. `agents/loop.py::run_agent_episode` gained a `session_factory`
+  parameter (default: the real `MCPToolSession`, zero behavior change for
+  every existing caller) so a robustness experiment can swap it in without
+  touching a task's own definition. Verified deterministic: the same
+  condition run twice produces the identical failure point
+  (`tests/test_fault_injection.py`), and a non-faulted tool in the same
+  session still reaches the real server (real file listing returned, not a
+  mock).
+- `run_agent_episode` also gained `task_id` (default `bugfix_inventory`),
+  threaded through `agents/baseline_agent.py`, `agents/advanced_agent.py`,
+  and `eval/run_experiment.py` (`--task-id`, `--task-file` now optional and
+  defaults to the task's own `task.md`). Both new parameters' actual
+  end-to-end wiring - not just each component in isolation - is checked by
+  `tests/test_loop_integration.py`, which scripts `anthropic.AsyncAnthropic`
+  (no live model) to run one full episode against
+  `bugfix_restock_exact_match` under a fault condition and asserts the
+  reward is exactly what that specific task's verifier would produce
+  (0.5) rather than what `bugfix_inventory`'s would silently produce if
+  `task_id` had failed to propagate (0.85 - a different, wrong number,
+  not a crash, which is exactly the kind of silent failure this test
+  exists to catch).
+
+**New tasks (Section 6 of the design doc):**
+
+- `bugfix_restock_exact_match` (C1): `InventoryService.restock()` gains an
+  exact-vs-substring SKU-matching bug. The real fix was added permanently
+  to `src/mcp_rl_env/inventory.py` (this repo's own reference state, same
+  convention as `bugfix_inventory`). `tests/test_task_bugfix_restock_exact_match.py`
+  includes a test constructing the realistic self-correction trap the
+  design doc names: an over-generalized "fix" that makes `search()`
+  exact-match too, confirmed to score `reward=0.0` because it breaks the
+  *existing*, task-unrelated `tests/test_inventory.py::test_search_by_name`
+  - caught by the verifier's whole-suite run, not by anything
+  task-specific.
+- `decoy_context_efficiency` (C2): identical bug/fix/verifier to
+  `bugfix_inventory`, plus one added file
+  (`src/mcp_rl_env/legacy_search.py`) - dead code with a comment
+  echoing the real bug's symptom ("can return a product more than once"),
+  never imported anywhere. `tests/test_task_decoy_context_efficiency.py`
+  confirms editing only the decoy cannot move the reward at all - the
+  verifier has no way to observe it - so any measured cost of chasing it
+  is a pure trajectory-efficiency signal, not a correctness one.
+- `generalization_contact_index` (C6, **held out**): a genuinely separate
+  domain (`src/contact_index/`, contacts/labels instead of
+  products/tags), independently worded task statement, same underlying
+  multi-field-match dedup bug shape. Per the design doc's leakage
+  discipline, this task's wording, file names, and bug manifestation must
+  never be referenced when iterating on agent prompts or the other three
+  tasks - it exists to be run once, at evaluation time, not to be
+  developed against.
+- `edge_case_coverage` + `eval/reward_replication.py` (C5): **not a new
+  agent-facing task** - a second data point for the flagship reward-hacking
+  finding, on a different requirement (empty-inventory handling) and a
+  different buggy seed than `bugfix_inventory`'s. Before writing this, the
+  design doc's 10-step search protocol was actually run against
+  `bugfix_inventory`'s other two requirements (ordering, API stability) and
+  found no separating artifact for either - reported as a negative result
+  in `TASK_SUITE_DESIGN.md` Section 5, not discarded. The replication
+  reproduced the same qualitative gap:
+  `vacuous_test` scores 1.0 under a new, independently-worded weak check
+  and 0.85 under the same mutation-testing mechanism, `real_regression_test`
+  scores 1.0 under both. This is reported as a **replication of one
+  mechanism**, not a second independent exploit type - RESEARCH.md's
+  framing is not rewritten to claim more than this shows. Confirmed
+  deterministic (two runs, byte-identical output), matching the flagship's
+  own claim.
+
+**Full suite after this phase:** `pytest -q` -> 52 passed (28 before this
+phase: +6 restock task, +1 its answer-key regression test, +3 decoy task,
++2 contact_index's own pre-existing tests, +1 its answer-key regression
+test, +5 its task-level tests, +1 net from splitting the seed-include
+leakage test into two, +4 fault injection, +1 loop integration).
+
+**What was not built in this phase, and why**: every candidate the design
+doc rejected (a multi-source-requirement task, a standalone
+hidden-invariant task, a conflicting-requirements task, a sandbox-escape
+task, resource budget or fault injection *as tasks* rather than
+conditions) stays rejected - nothing here reverses those calls. The
+resource-budget condition (Section 8) needed no new code (`max_turns`
+already existed); it's exercised by choice of CLI arguments, not a new
+mechanism, so there's nothing to add here beyond what's already true of
+`run_agent_episode`.

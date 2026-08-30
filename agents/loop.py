@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 from harness.mcp_client import MCPToolError, MCPToolSession
+from harness.task_registry import DEFAULT_TASK_ID
 from harness.trajectory import Trajectory
 from harness.verifier import verify_workspace
 from agents.tool_schemas import TOOLS
@@ -39,6 +40,8 @@ async def run_agent_episode(
     require_approval: bool = False,
     interactive_approval: bool = False,
     approval_hook: Callable[[str], bool] | None = None,
+    task_id: str = DEFAULT_TASK_ID,
+    session_factory: Callable[[Path], object] = MCPToolSession,
 ) -> dict:
     """Run one episode: agent <-> real MCP server, until the model stops
     calling tools or `max_turns` is hit. Returns the verifier's report.
@@ -51,6 +54,15 @@ async def run_agent_episode(
     trajectory, not hidden. Pass `interactive_approval=True` (with an
     optional `approval_hook`, default: a real terminal prompt) to make it
     a genuine blocking approval.
+
+    `task_id` must match the task_id the workspace was actually seeded
+    with (harness/workspace.py's make_episode_workspace) - it's not
+    inferred from the workspace, so the caller is responsible for keeping
+    the two in sync (mirrors how MCP_RL_ENV_ROOT has no silent fallback:
+    an explicit, possibly-wrong value fails loudly and correctably, a
+    guessed one wouldn't). `session_factory` swaps in a
+    FaultInjectingMCPToolSession (harness/fault_injection.py) for
+    robustness experiments; defaults to a real, unmodified MCPToolSession.
     """
     import anthropic  # imported lazily so the rest of the harness works without the package installed
 
@@ -71,7 +83,7 @@ async def run_agent_episode(
 
     messages: list[dict] = [{"role": "user", "content": task_prompt}]
 
-    async with MCPToolSession(workspace) as session:
+    async with session_factory(workspace) as session:
         turn = 0
         pending_failures: dict[str, int] = {}  # tool name -> index of its latest unresolved failure
         try:
@@ -163,7 +175,7 @@ async def run_agent_episode(
             auto=not interactive_approval,
         )
 
-    report = verify_workspace(workspace)
+    report = verify_workspace(workspace, task_id=task_id)
     traj.finish(report)
     traj.save(trajectory_out_dir)
     return report

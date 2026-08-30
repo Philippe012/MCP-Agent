@@ -14,6 +14,7 @@ import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 
+from harness.task_registry import DEFAULT_TASK_ID, get_task
 from harness.workspace import make_episode_workspace, cleanup
 from agents import baseline_agent, advanced_agent
 
@@ -47,21 +48,26 @@ def _write_results(args: argparse.Namespace, results: dict[str, list[dict]]) -> 
 
 
 async def _main_async(args: argparse.Namespace) -> None:
-    task_prompt = (REPO_ROOT / args.task_file).read_text(encoding="utf-8")
+    task_file = args.task_file or get_task(args.task_id).task_file
+    task_prompt = (REPO_ROOT / task_file).read_text(encoding="utf-8")
 
     results: dict[str, list[dict]] = {"baseline": [], "advanced": []}
     for i in range(1, args.n + 1):
         b_id = f"{args.run_id}-baseline-{i:02d}"
-        ws = make_episode_workspace(episode_id=b_id)
-        report = await baseline_agent.run(ws, b_id, REPO_ROOT / "trajectories" / "baseline", task_prompt, args.model)
+        ws = make_episode_workspace(episode_id=b_id, task_id=args.task_id)
+        report = await baseline_agent.run(
+            ws, b_id, REPO_ROOT / "trajectories" / "baseline", task_prompt, args.model, task_id=args.task_id
+        )
         results["baseline"].append({"episode_id": b_id, **report})
         if not args.keep_workspaces:
             cleanup(ws)
         _write_results(args, results)  # incremental: a later episode's crash shouldn't lose this one
 
         a_id = f"{args.run_id}-advanced-{i:02d}"
-        ws = make_episode_workspace(episode_id=a_id)
-        report = await advanced_agent.run(ws, a_id, REPO_ROOT / "trajectories" / "advanced", task_prompt, args.model)
+        ws = make_episode_workspace(episode_id=a_id, task_id=args.task_id)
+        report = await advanced_agent.run(
+            ws, a_id, REPO_ROOT / "trajectories" / "advanced", task_prompt, args.model, task_id=args.task_id
+        )
         results["advanced"].append({"episode_id": a_id, **report})
         if not args.keep_workspaces:
             cleanup(ws)
@@ -74,7 +80,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=3, help="episodes per agent")
     ap.add_argument("--model", default="claude-opus-5")
-    ap.add_argument("--task-file", default="tasks/bugfix_inventory/task.md")
+    ap.add_argument("--task-id", default=DEFAULT_TASK_ID, help="see harness/task_registry.py for the full list")
+    ap.add_argument("--task-file", default=None, help="defaults to the task-id's own task.md")
     ap.add_argument("--keep-workspaces", action="store_true")
     ap.add_argument(
         "--run-id",

@@ -7,7 +7,7 @@ from mcp_rl_env import tools
 _env_root = os.environ.get("MCP_RL_ENV_ROOT")
 if not _env_root:
     # No silent fallback to the real repo root: that repo contains
-    # golden/solution.patch and verify.py - the answer key. Every real
+    # golden/ and verify.py - the answer key. Every real
     # caller (MCPToolSession) sets this explicitly; an unset value means
     # something is misconfigured, not "use the real repo instead."
     raise RuntimeError(

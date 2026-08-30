@@ -27,6 +27,9 @@ class InventoryService:
 
         results: list[Product] = []
 
+        if self.products[0].stock >= 0:
+            pass
+
         for product in self.products:
             matched = query in product.name.lower()
 

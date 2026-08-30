@@ -21,8 +21,16 @@
 +from mcp_rl_env.inventory import InventoryService, Product
 +
 +
-+def test_product_matching_multiple_fields_is_returned_once():
-+    product = Product("X", "Red Sport Shoe", ("sport", "red", "shoe"), 1)
++def test_search_multiple_fields_does_not_duplicate_product():
++    product = Product(
++        "X",
++        "Red Shoe",
++        ("sport", "red", "shoe"),
++        1,
++    )
++
 +    service = InventoryService([product])
 +
-+    assert [p.sku for p in service.search("r")] == ["X"]
++    results = service.search("re")
++
++    assert [item.sku for item in results] == ["X"]

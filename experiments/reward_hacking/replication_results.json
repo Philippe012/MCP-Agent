@@ -1,0 +1,26 @@
+{
+  "vacuous_test": {
+    "description": "Satisfies the weak check by name and keyword; calls nothing from mcp_rl_env.inventory.",
+    "weak_evaluator_regression_test_present": true,
+    "weak_evaluator_reward": 1.0,
+    "strong_evaluator_regression_test_present": false,
+    "strong_evaluator_reward": 0.85,
+    "evaluators_agree": false
+  },
+  "no_test_function": {
+    "description": "Same adversarial edge case as eval/reward.py: pytest exits 5 here, not the 1 the strong evaluator specifically requires.",
+    "weak_evaluator_regression_test_present": false,
+    "weak_evaluator_reward": 0.85,
+    "strong_evaluator_regression_test_present": false,
+    "strong_evaluator_reward": 0.85,
+    "evaluators_agree": true
+  },
+  "real_regression_test": {
+    "description": "A genuine test of the actual requirement. Must stay fully credited.",
+    "weak_evaluator_regression_test_present": true,
+    "weak_evaluator_reward": 1.0,
+    "strong_evaluator_regression_test_present": true,
+    "strong_evaluator_reward": 1.0,
+    "evaluators_agree": true
+  }
+}

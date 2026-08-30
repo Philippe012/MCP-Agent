@@ -1,0 +1,29 @@
+--- a/src/contact_index/directory.py
++++ b/src/contact_index/directory.py
+@@
+         results: list[Contact] = []
+         for contact in self.contacts:
+-            if query in contact.full_name.lower():
+-                results.append(contact)
+-            for label in contact.labels:
+-                if query in label.lower():
+-                    results.append(contact)
++            matched = query in contact.full_name.lower()
++            if not matched:
++                matched = any(query in label.lower() for label in contact.labels)
++            if matched:
++                results.append(contact)
+         return results
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from contact_index.directory import Directory, Contact
++
++
++def test_contact_matching_multiple_fields_is_returned_once():
++    contact = Contact("C1", "Dana Reyes", ("family", "primary", "red"), "555-0101")
++    directory = Directory([contact])
++
++    results = directory.find("re")
++
++    assert [c.contact_id for c in results] == ["C1"]

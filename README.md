@@ -89,6 +89,19 @@ explaining why the call was made. This is deliberately observable
 behavior only - nothing about the model's hidden reasoning is recorded or
 claimed.
 
+## Task suite
+
+`bugfix_inventory` is one of five tasks in `harness/task_registry.py`
+(`bugfix_restock_exact_match`, `decoy_context_efficiency`,
+`edge_case_coverage`, `generalization_contact_index`), each added because
+it isolates a distinct research question rather than to grow the count -
+see [TASK_SUITE_DESIGN.md](TASK_SUITE_DESIGN.md) for the full design
+review, including every candidate task that was considered and rejected,
+and why. `generalization_contact_index` is deliberately held out: never
+referenced while iterating on prompts or the other tasks, used only to
+measure whether a policy transfers to an unseen domain or was tuned to
+this one.
+
 ## Baseline vs. advanced
 
 Both policies see the same task, the same tools, and the same seeded bug.
@@ -140,6 +153,11 @@ to the evidence (a failing smoke test, a hung process, a wrong file list,
 a leaked docstring, a gamed reward) that motivated the next decision.
 
 ## Main failure mode and hot take
+
+See [RESEARCH.md](RESEARCH.md) for the formal, controlled version of the
+finding below - research question, hypothesis, method, and results,
+including why it is explicitly *not* a claim that any agent in this
+project cheated.
 
 **The main failure mode this project surfaces, at two levels:**
 

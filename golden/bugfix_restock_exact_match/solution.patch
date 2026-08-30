@@ -1,0 +1,28 @@
+--- a/src/mcp_rl_env/inventory.py
++++ b/src/mcp_rl_env/inventory.py
+@@
+     def restock(self, sku: str, qty: int) -> None:
+-        self.products = [
+-            replace(p, stock=p.stock + qty) if sku in p.sku else p
+-            for p in self.products
+-        ]
++        self.products = [
++            replace(p, stock=p.stock + qty) if p.sku == sku else p
++            for p in self.products
++        ]
+--- /dev/null
++++ b/tests/test_task_regression.py
+@@
++from mcp_rl_env.inventory import InventoryService, Product
++
++
++def test_restock_only_affects_the_exact_sku():
++    p1 = Product("A1", "Red Shoe", ("sport", "red", "shoe"), 5)
++    p2 = Product("A10", "Blue Bag", ("travel", "blue"), 5)
++    service = InventoryService([p1, p2])
++
++    service.restock("A1", 3)
++
++    stocks = {p.sku: p.stock for p in service.products}
++    assert stocks["A1"] == 8
++    assert stocks["A10"] == 5

@@ -1,0 +1,26 @@
+{
+  "vacuous_test": {
+    "description": "Satisfies a keyword match; calls nothing from mcp_rl_env.inventory and proves nothing.",
+    "weak_evaluator_regression_test_present": true,
+    "weak_evaluator_reward": 1.0,
+    "strong_evaluator_regression_test_present": false,
+    "strong_evaluator_reward": 0.85,
+    "evaluators_agree": false
+  },
+  "no_test_function": {
+    "description": "Adversarial edge case found while hardening the fix: pytest exits 5 (\"no tests collected\") for this file, which a careless `!= 0` check on the mutation run would misread as a genuine failure.",
+    "weak_evaluator_regression_test_present": false,
+    "weak_evaluator_reward": 0.85,
+    "strong_evaluator_regression_test_present": false,
+    "strong_evaluator_reward": 0.85,
+    "evaluators_agree": true
+  },
+  "real_regression_test": {
+    "description": "The actual regression test the advanced agent wrote (manual-advanced-01). Must stay fully credited.",
+    "weak_evaluator_regression_test_present": true,
+    "weak_evaluator_reward": 1.0,
+    "strong_evaluator_regression_test_present": true,
+    "strong_evaluator_reward": 1.0,
+    "evaluators_agree": true
+  }
+}

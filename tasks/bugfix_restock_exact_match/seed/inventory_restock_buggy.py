@@ -13,12 +13,6 @@ class InventoryService:
     def __init__(self, products: list[Product]) -> None:
         self.products = products
 
-    def restock(self, sku: str, qty: int) -> None:
-        self.products = [
-            replace(p, stock=p.stock + qty) if p.sku == sku else p
-            for p in self.products
-        ]
-
     def search(self, query: str) -> list[Product]:
         query = query.strip().lower()
 
@@ -40,3 +34,9 @@ class InventoryService:
                 results.append(product)
 
         return results
+
+    def restock(self, sku: str, qty: int) -> None:
+        self.products = [
+            replace(p, stock=p.stock + qty) if sku in p.sku else p
+            for p in self.products
+        ]

@@ -27,17 +27,47 @@ pip install -r requirements.txt      # installs mcp, pytest, anthropic; ~15s
 pip install -e .                     # makes agents/, harness/, eval/, mcp_rl_env importable
                                       # from any cwd, e.g. `python agents/baseline_agent.py`
                                       # directly - see CHANGELOG's Phase 1 entry
-pytest -q                            # 12 passed, ~10s
+pytest -q                            # 52 passed, ~50s
 ```
 
-Expected output: `12 passed in ~10s`. These tests cover the original
+Expected output: `52 passed in ~50s`. These tests cover the original
 inventory-service unit tests, `tests/test_harness.py` (episode
 isolation, the seeded bug, the verifier's scoring in both directions
 including its rejection of a vacuous regression test - see CHANGELOG item
-10 - and trajectory recording), and `tests/test_tool_schema_parity.py`
-(connects to the real MCP server and checks it against
-`agents/tool_schemas.py` - see CHANGELOG's Phase 1 entry) - none need
-network access.
+10 - and trajectory recording, plus item 13's Windows workspace-reuse
+regression test), `tests/test_tool_schema_parity.py` (connects to the real
+MCP server and checks it against `agents/tool_schemas.py`),
+`tests/test_tools_path_safety.py` (direct tests of the path-containment
+property), one test file per task in `harness/task_registry.py` beyond
+`bugfix_inventory` (`test_task_bugfix_restock_exact_match.py`,
+`test_task_decoy_context_efficiency.py`,
+`test_task_generalization_contact_index.py`), and
+`test_fault_injection.py` / `test_loop_integration.py` (the deterministic
+fault-injection wrapper and its end-to-end wiring through the agent loop -
+see TASK_SUITE_DESIGN.md and CHANGELOG's Phase 3) - none need network
+access.
+
+```bash
+python -m eval.reward               # the flagship reward-hacking experiment - see RESEARCH.md
+python -m eval.reward_replication   # the same finding, replicated on a different requirement/task
+```
+
+Expected output: a JSON report (also saved to
+`experiments/reward_hacking/results.json` and `replication_results.json`
+respectively) showing the weak evaluator crediting a vacuous test with
+full reward while the strong evaluator denies it, with the genuine
+regression test fully credited under both. Deterministic - no API key, no
+randomness, same result every run.
+
+```bash
+VERIFY_TASK_ID=bugfix_restock_exact_match VERIFY_ROOT=<a workspace for that task> python verify.py
+```
+
+`verify.py` and `harness/workspace.py::make_episode_workspace` both take a
+`task_id` (`VERIFY_TASK_ID` env var for the CLI; a keyword argument
+everywhere else) - see `harness/task_registry.py` for the full list of
+task IDs. Every command below defaults to `bugfix_inventory` unless a
+`--task-id` is given.
 
 ```bash
 python verify.py
@@ -120,6 +150,14 @@ python -m agents.advanced_agent --episode advanced-auto-01
 # Or N of each, plus an aggregated comparison table:
 python -m eval.run_experiment --n 5 --model claude-opus-5
 cat results/results.md
+
+# Against a different task in harness/task_registry.py (e.g. the C1 task):
+python -m eval.run_experiment --n 5 --task-id bugfix_restock_exact_match
+
+# generalization_contact_index is held out (TASK_SUITE_DESIGN.md C6): run
+# it only to measure generalization, never while iterating on prompts -
+# its wording and bug shape must stay unseen during development.
+python -m eval.run_experiment --n 3 --task-id generalization_contact_index --run-id generalization-check
 ```
 
 Expected: `results/results.json` and `results/results.md` are overwritten

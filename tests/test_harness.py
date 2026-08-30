@@ -53,8 +53,8 @@ def test_verifier_scores_unfixed_seed_below_full_reward(seeded_workspace):
 
 
 def test_verifier_scores_a_correct_fix_plus_regression_test_at_full_reward(seeded_workspace):
-    fixed = (REPO_ROOT / "golden" / "solution.patch").exists()
-    assert fixed  
+    fixed = (REPO_ROOT / "golden" / "bugfix_inventory" / "solution.patch").exists()
+    assert fixed
 
     inventory = seeded_workspace / "src" / "mcp_rl_env" / "inventory.py"
     inventory.write_text(
@@ -89,15 +89,57 @@ def test_verifier_rejects_a_vacuous_regression_test(seeded_workspace):
 
 
 def test_seed_include_never_lists_the_answer_shaped_regression_test():
-    # workspace.py already unlinks tests/test_task_regression.py defensively
-    # (test_seed_workspace_contains_only_sandboxed_files covers that), but
-    # this asserts the stronger invariant directly on _SEED_INCLUDE itself,
-    # so a future edit (e.g. "tests/test_inventory.py" -> "tests") can't
-    # silently start copying it in the first place.
-    from harness.workspace import _SEED_INCLUDE
+    # workspace.py already unlinks each task's regression_test_path
+    # defensively (test_seed_workspace_contains_only_sandboxed_files covers
+    # this for bugfix_inventory), but this asserts the stronger invariant
+    # directly on every registered task's seed_include, so a future task
+    # (or a future edit like "tests/test_inventory.py" -> "tests") can't
+    # silently start copying its own answer key in.
+    from harness.task_registry import all_task_ids, get_task
 
-    assert "tests/test_task_regression.py" not in _SEED_INCLUDE
-    assert "tests" not in _SEED_INCLUDE  # a whole-directory include would sweep it in
+    for task_id in all_task_ids():
+        spec = get_task(task_id)
+        assert spec.regression_test_path not in spec.seed_include
+        # A whole-directory include would sweep the regression test in
+        # regardless of its exact name.
+        assert not any(
+            spec.regression_test_path.startswith(rel.rstrip("/") + "/") for rel in spec.seed_include
+        )
+
+
+def test_seed_include_never_lists_another_tasks_directory():
+    # The original design copied the entire `tasks/` directory into every
+    # workspace - harmless with one task, but it would have leaked every
+    # other task's task.md (and any future task-specific answer material
+    # under tasks/<id>/) into every episode the moment a second task
+    # existed. Each task must list only its own task.md, not "tasks" or
+    # another task's subtree.
+    from harness.task_registry import all_task_ids, get_task
+
+    for task_id in all_task_ids():
+        spec = get_task(task_id)
+        assert "tasks" not in spec.seed_include
+        for rel in spec.seed_include:
+            if rel.startswith("tasks/"):
+                assert rel == spec.task_file or rel.startswith(f"tasks/{task_id}/")
+
+
+def test_make_episode_workspace_can_reuse_an_episode_id_after_cleanup(tmp_path):
+    # Regression test for a real Windows bug: git writes .git/objects/* as
+    # read-only by design, and a prior plain `shutil.rmtree` (both here and
+    # in cleanup()'s old `ignore_errors=True`) could not delete them. A
+    # cleaned-up-but-not-actually-deleted workspace then made the *next*
+    # make_episode_workspace() call with the same episode_id crash instead
+    # of cleanup() itself failing loudly - discovered by running
+    # `eval.reward` twice in a row against a real temp directory.
+    ws = make_episode_workspace(base_dir=tmp_path, episode_id="reuse-me")
+    assert ws.exists()
+    cleanup(ws)
+    assert not ws.exists()  # cleanup must actually remove it, not just claim to
+
+    ws2 = make_episode_workspace(base_dir=tmp_path, episode_id="reuse-me")
+    assert ws2.exists()
+    cleanup(ws2)
 
 
 def test_server_refuses_to_start_without_mcp_rl_env_root():
