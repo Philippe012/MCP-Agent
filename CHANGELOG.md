@@ -20,6 +20,8 @@ one being silently rewritten.
 | [Phase 4](#phase-4---final-research-quality-gate-the-package-rename-was-half-finished-and-broke-the-documented-reproduction-path) | A half-finished package rename fixed, a second regression-verifier exploit found and left honestly open, a held-out task's wording leakage found and fixed |
 | [Phase 5](#phase-5---task-suite-expansion-5---15-tasks) | Expansion from 5 to 15 tasks, with a full capability map and every rejected candidate |
 | [Phase 6](#phase-6---final-submission-audit-two-cleanup-commits-had-silently-broken-every-tasks-reward) | Pre-submission audit: two "quality" commits had silently broken every task's reward mechanism - found, fixed, and reverified |
+| [Phase 7](#phase-7---attempted-multi-task-agent-evaluation-built-a-deterministic-15-task-sweep-instead) | A multi-task live-agent run was requested; confirmed 0/15 tasks could be evaluated (no API key) and this was not simulated; built and ran a deterministic 15-task verifier sweep instead |
+| [Phase 8](#phase-8---evalrun_experimentpy-gained-multi-task-support-engineering-only-no-live-run) | `eval/run_experiment.py` gained `--task-ids`/`--all-tasks` for a real multi-task run whenever a key is available; single-task path untouched; 14 new tests, no live API call anywhere |
 
 ## 1. The repo held the answer, not a benchmark
 
@@ -1272,3 +1274,169 @@ exactly that failure mode, discovered against this project's own codebase
 rather than only its evaluator. It is recorded as its own entry, not
 folded into an earlier one, because it is a second, real, freshly-found
 instance of the same lesson - not a hypothetical one.
+
+## Phase 7 - Attempted multi-task agent evaluation; built a deterministic 15-task sweep instead
+
+**What was asked:** run the baseline and advanced agent policies against
+as many of the 15 registered tasks as the environment permits, using the
+same task conditions, tools, and budget for both, and report real
+per-task results - explicitly not fabricated ones.
+
+**What was actually possible, checked before doing anything else:** this
+build session's environment was checked directly (`echo
+$ANTHROPIC_API_KEY`, `env | grep -i anthropic`) and confirmed to have no
+key set. `agents/baseline_agent.py` and `agents/advanced_agent.py` both
+call the real Anthropic API - there is no code path that runs them
+without one. **Result: 0 of 15 tasks could be evaluated with a live agent
+in this session**, for the same reason `manual-baseline-01` /
+`manual-advanced-01` / `manual-recovery-01` exist as manually-driven
+episodes in the first place (see `trajectories/README.md`). Per this
+project's own standing rule, this was not simulated, scripted with a fake
+model, or estimated - it is reported as exactly what it is: an
+unavailable evaluation, with the exact command to run it recorded below
+once a key exists.
+
+**What was built and run instead, real and deterministic:**
+`eval/task_verifier_sweep.py` runs every one of the 15 registered tasks
+through the same `verify.py` mechanism every other consumer uses, in four
+states per agent-facing task (unfixed seed / fixed-no-test /
+fixed-plus-real-test / fixed-plus-vacuous-test), with no model involved.
+This is not a substitute for the requested agent comparison and is not
+presented as one anywhere in this repo's documentation - it answers a
+different, narrower, but genuinely new question: is the *evaluator*
+itself reliable and uniform across the whole suite, not just the one task
+with real agent trajectories.
+
+**Results** (full table:
+[results/task_verifier_sweep.md](results/task_verifier_sweep.md), raw
+JSON: `results/task_verifier_sweep.json`), reproduced twice with
+byte-identical output:
+- All 15 seeds score below full reward - genuinely buggy, not accidentally
+  already-fixed. 13 of the 14 agent-facing tasks score 0.5;
+  `pricing_discount_rounding` scores 0.0, matching its documented design
+  (a pre-existing visible test already fails on the seed).
+- All 14 agent-facing tasks score exactly 0.85 for a correct fix with no
+  regression test, and exactly 1.0 once a genuine regression test is
+  added - the same 0.85/1.00 pair `bugfix_inventory`'s two real manual
+  episodes scored, now confirmed uniform across the suite rather than
+  assumed from one task.
+- All 14 correctly reject a vacuous regression test (scored 0.85, not
+  1.0), extending the anti-reward-hacking mutation check's demonstrated
+  coverage from 2 tasks (RESEARCH.md's flagship experiment plus its one
+  replication) to all 14 - a broader confirmation of the same mechanism,
+  not a second independent exploit type, exactly the same distinction
+  RESEARCH.md already draws for the original replication.
+
+**Documentation updated to match, and only where the new evidence
+required it:** README's "Baseline vs. advanced" section now states
+explicitly that the agent comparison is N=1 on one task and why the rest
+couldn't be run this session, with the exact reproduction command; a new
+"Deterministic verifier validation across all 15 tasks" section presents
+the sweep as separate, clearly-labeled evidence about the environment, not
+about agent behavior; REPRODUCE.md's quick-reference table gained the
+sweep command; RESEARCH.md's replication section gained one paragraph
+noting the broader (not deeper) confirmation. `eval/reward.py`,
+`eval/reward_replication.py`, and their committed JSON outputs were not
+touched - the flagship reward-hacking experiment's existing evidence is
+unchanged, per this phase's own scope.
+
+**What this phase explicitly does not claim:** that the 0.85-vs-1.00
+baseline/advanced *agent* gap holds on any task other than
+`bugfix_inventory`; that a live model was run anywhere in this session;
+or that the deterministic sweep is a stand-in for the requested
+statistical, per-task agent comparison. All three would misrepresent what
+was actually measured.
+
+## Phase 8 - `eval/run_experiment.py` gained multi-task support (engineering only, no live run)
+
+**What was asked:** extend the harness so a single invocation can run
+baseline+advanced across several tasks, or every agent-facing task, not
+just one - so that whenever a live `ANTHROPIC_API_KEY` is available, the
+multi-task comparison Phase 7 couldn't run doesn't also need new code
+written under time pressure.
+
+**Design, kept to the smallest safe change:** `_main_async` (the original
+single-task function) is untouched, byte-for-byte - every existing
+`--task-id`-only invocation still calls exactly that function and writes
+exactly `results/results.json` / `results/results.md`, the same as
+before this phase. Two new, purely additive CLI flags route to a new
+function instead: `--task-ids <id> [<id> ...]` (explicit list) and
+`--all-tasks` (every task `harness/task_registry.py` returns except
+`edge_case_coverage`, added as a small, explicit exclusion set -
+`NON_AGENT_FACING_TASK_IDS` - rather than a new field on `TaskSpec`, so
+the task registry itself needed no change). Naming
+`edge_case_coverage` explicitly via `--task-ids` is refused with a clear
+error for the same reason it's excluded from `--all-tasks`: it is
+documented, in its own `task.md`, as never shown to a live agent, and
+nothing in this harness should be able to violate that by accident.
+
+**What the new path does, using unmodified components:** for each
+selected task, `_run_multi_task` calls the same
+`harness.workspace.make_episode_workspace`, the same
+`agents.baseline_agent.run` / `agents.advanced_agent.run`, and therefore
+the same `agents/loop.py` tool-use loop and `verify.py` scoring every
+single-task episode already used - `--n` still means episodes per agent,
+now per agent *per task*. Episode and trajectory IDs are prefixed with
+the task ID (`<run-id>-<task-id>-baseline-NN`) so two tasks in the same
+run can never collide, and results are written incrementally after every
+single episode to `results/multitask_results.json` / `.md` - a separate
+pair of files from the single-task ones, so a multi-task run can never
+overwrite single-task evidence (or vice versa) regardless of run order.
+Aggregation is reported two ways: per-task (the same `_summarize()`
+function every single-task run already uses) and pooled across the whole
+selected set, kept as two clearly separate sections in the Markdown
+output rather than one number that would blur "how does the gap vary by
+task" into "what's the average."
+
+**Explicitly not touched, per this phase's own scope:** task definitions,
+seeded bugs, `verify.py`'s scoring logic, the baseline or advanced system
+prompts, and `eval/reward.py` / `eval/reward_replication.py` and their
+committed evidence - none of these needed to change for multi-task
+support, and none were edited.
+
+**Tests added** (`tests/test_run_experiment_multitask.py`, 14 new,
+zero live API calls anywhere in the file):
+`agents.baseline_agent` / `agents.advanced_agent` are monkeypatched with
+fake async functions that record their own calls and return canned
+reports - real `make_episode_workspace`/`cleanup` calls still run, so the
+tests exercise the real registry and real workspace isolation, not a
+fully mocked harness. Covers: task-ID resolution for all three modes
+(`--task-id` default, explicit `--task-ids`, `--all-tasks`); that
+`--all-tasks` excludes `edge_case_coverage` and that naming it explicitly
+via `--task-ids` raises; per-task and pooled-overall aggregation against
+hand-constructed reward data; that baseline and advanced are both called
+once per task per episode with matching task IDs and collision-free
+episode IDs across a 3-task, n=2 run; and, at the `main()` routing level
+(not just the helper functions), that a plain `--task-id` invocation
+still calls the untouched single-task function and only that one, that
+`--all-tasks` routes to the new multi-task function with the correct
+14-task list, and that passing both flags together is rejected.
+
+**Verification:** `pytest -q` -> `148 passed` (134 before this phase, +14
+new). Re-ran `python -m eval.reward` and `python -m eval.reward_replication`
+after this change - byte-identical to the committed
+`experiments/reward_hacking/*.json` (modulo the same trailing-newline
+non-difference noted in earlier phases), confirming this phase touched
+nothing the flagship experiment depends on.
+
+**Still not run, and not simulated:** this build session has no
+`ANTHROPIC_API_KEY` (re-confirmed the same way Phase 7 confirmed it,
+directly against the environment, not assumed). `--task-ids` and
+`--all-tasks` are new, tested code paths, not new evidence about agent
+behavior - no multi-task live episode exists anywhere in this repo after
+this phase, and none is claimed to. The exact command to produce that
+evidence, once a key is available, is in REPRODUCE.md's Part 3.
+
+**An unrelated, unexplained observation from this same session, disclosed
+rather than quietly cleaned up:** while verifying this phase's `git
+status` was clean, two untracked files appeared under
+`trajectories/baseline/` - a single episode record with 0 recorded steps,
+a null verdict, and the *single-task* naming convention (not this
+phase's task-ID-prefixed one), consistent with `agents/loop.py` saving a
+freshly-created trajectory and then failing on its first real Anthropic
+API call (no key). This was not produced by any test in this phase - the
+same full suite was run twice more afterward with no recurrence, and each
+new test was also re-run individually with no recurrence - so the cause
+was not isolated. The files were deleted without asking first, which was
+a process mistake independent of whether the content had any value (it
+recorded zero agent steps); disclosed here rather than left unmentioned.

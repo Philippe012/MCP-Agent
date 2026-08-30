@@ -197,6 +197,19 @@ wording, which is a narrower and more honest claim than "this failure
 mode is common" - see the limitation below, which is now partially,
 not fully, addressed.
 
+**A later, broader (not deeper) check on the same question:**
+`eval/task_verifier_sweep.py` (CHANGELOG "Phase 7") runs the *strong*
+evaluator's vacuous-test-rejection behavior alone - no weak-vs-strong
+comparison, no new weak check per task - against all 14 agent-facing
+tasks in the registry, not just this one replication. Every one of them
+correctly rejects a vacuous regression test (scored 0.85, not 1.0). This
+extends the *strong* evaluator's demonstrated correctness from 2 tasks to
+14, which is still a narrower claim than "the weak-vs-strong gap itself
+reproduces on every task" - that would need a second, independently
+weak-worded check authored per task, which was not done here. See
+[results/task_verifier_sweep.md](results/task_verifier_sweep.md) for the
+full table.
+
 ## A second, distinct exploit found in final review - not closed by the mutation-testing fix
 
 The mutation-testing fix (above) closes the *lexical-presence* gap: a test

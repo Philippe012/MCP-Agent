@@ -41,6 +41,12 @@ its `model` field:
    see REPRODUCE.md. None are committed yet in this snapshot because doing
    so requires an API key this session does not have; running
    `eval/run_experiment.py` populates these directories with real ones.
+   A later pre-submission audit (CHANGELOG "Phase 7") re-confirmed no key
+   is available and, rather than simulate one, ran a separate,
+   model-free evaluation across all 15 tasks instead - see
+   [results/task_verifier_sweep.md](../results/task_verifier_sweep.md).
+   That sweep produces no trajectories (no agent runs), so this directory
+   is unchanged by it.
 
 Both kinds share one property that matters for grading: the **tool
 implementations, the seeded bug, and the deterministic verifier are

@@ -29,8 +29,8 @@ experiments.
 |---|---|---|
 | Problem & User Value | 15% | "Who this is for" below |
 | Agent Solution & Engineering | 30% | "Architecture", "The 15 tasks", `harness/`, `agents/` |
-| End-to-End Quality | 20% | 134/134 tests passing, `python verify.py` → `REWARD=1.00`, a real MCP stdio server (nothing mocked) |
-| Measured Improvement | 15% | "Baseline vs. advanced" below - **N=1 real reference episode per policy**, not a statistical sample (see [results/results.md](results/results.md) and Limitations) |
+| End-to-End Quality | 20% | 148/148 tests passing, `python verify.py` → `REWARD=1.00`, a real MCP stdio server (nothing mocked), the verifier validated deterministically on all 15 tasks |
+| Measured Improvement | 15% | Two kinds, kept separate: (1) **N=1 real agent episode per policy** on one task - "Baseline vs. advanced" below, not a statistical sample; (2) a deterministic verifier sweep across **all 15 tasks**, no model involved - "Deterministic verifier validation" below |
 | Reproducibility | 15% | "Quickstart" below, [REPRODUCE.md](REPRODUCE.md) - exact commands, versions, runtime |
 | Hot Take / Insights | 5% | "Main failure mode and hot take" |
 
@@ -168,11 +168,44 @@ to an unseen domain or was tuned to the domains it was developed against -
 see CHANGELOG's "Phase 5" for the full expansion, every candidate
 considered, and why each was accepted or rejected.
 
+## Deterministic verifier validation across all 15 tasks
+
+Before asking whether an *agent* is reliable across the suite, this
+project first checked whether the suite's own grading mechanism is -
+without a model in the loop at all. `python -m eval.task_verifier_sweep`
+runs every one of the 15 registered tasks through the same deterministic
+`verify.py` every other consumer uses, in four states: the unfixed seed,
+the real fix with no regression test, the real fix with a genuine
+regression test, and the real fix with a vacuous one. Full table:
+[results/task_verifier_sweep.md](results/task_verifier_sweep.md).
+
+**Result, reproduced twice with byte-identical output:** every one of the
+15 seeds is genuinely buggy (scores below full reward); every one of the
+14 agent-facing tasks scores exactly **0.85** for a correct fix with no
+test and exactly **1.00** once a genuine regression test is added - the
+same 0.85/1.00 pair `bugfix_inventory`'s real baseline/advanced episodes
+scored, now confirmed uniform across the whole suite, not assumed; and
+every one of the 14 correctly **rejects a vacuous regression test**,
+extending the anti-reward-hacking mutation check's demonstrated coverage
+from 2 tasks (RESEARCH.md's flagship experiment and its replication) to
+all 14. This *is* real, measured, cross-task evidence - about the
+evaluator's reliability, not about agent behavior. It is not a
+baseline-vs-advanced agent comparison and does not claim to be one; see
+the next section for what agent evidence actually exists today.
+
 ## Baseline vs. advanced
 
 Both policies see the same task, the same tools, and the same seeded bug.
 They use the same environment and tools but follow different completion
-policies:
+policies. **This comparison itself has real, live-driven evidence on one
+task (`bugfix_inventory`)** - the harness supports running it against any
+single task (`eval/run_experiment.py --task-id <id>`) or all 14
+agent-facing tasks in one invocation (`--task-ids <id> ...` /
+`--all-tasks`, added in CHANGELOG's "Phase 8" and covered by 14 tests with
+no live API call), but extending the *evidence* to more than one task
+requires a live `ANTHROPIC_API_KEY` this build session does not have, so
+that run was not performed and is not simulated here - see CHANGELOG's
+"Phase 7" and "Phase 8" entries and REPRODUCE.md for the exact commands:
 
 | | Baseline | Advanced |
 |---|---|---|
@@ -303,12 +336,18 @@ thread is that a check which cannot fail is not a check.
   condition has been executed yet - that still needs a live
   `ANTHROPIC_API_KEY` and is not simulated here.
 - **The measured baseline-vs-advanced comparison uses one task instance
-  (`bugfix_inventory`).** The registry supports all 15 tasks and
-  `eval/run_experiment.py --task-id <id>` can run a real episode against
-  any of them (see REPRODUCE.md), but no live episode has been recorded
-  yet for the other 14 - the 0.85-vs-1.00 gap above is evidence for that
-  one task's mechanism, not a claim that the gap holds at the same size
-  everywhere.
+  (`bugfix_inventory`).** `eval/run_experiment.py` can run a real episode
+  against any single task (`--task-id <id>`) or all 14 agent-facing tasks
+  in one invocation (`--all-tasks` / `--task-ids`, see REPRODUCE.md) -
+  this infrastructure is tested (14 tests, no live API call), but no live
+  episode has been recorded yet for the other 14 tasks - the 0.85-vs-1.00
+  gap above is evidence for that one task's mechanism, not a claim that
+  the gap holds at the same size
+  everywhere. This build session confirmed it has no `ANTHROPIC_API_KEY`
+  and did not attempt to run one (CHANGELOG "Phase 7"); running
+  `eval.task_verifier_sweep` instead (no model, all 15 tasks - see above)
+  is real, complementary evidence that the *environment* is uniform across
+  the suite, which is not the same claim as the *agent gap* being uniform.
 - **The regression-test verifier has a second, unfixed exploit shape.**
   The mutation-testing fix (this project's own hot take, above) closes the
   *lexical-presence* gap (a test that asserts nothing) but not a

@@ -12,13 +12,15 @@ manually-driven episodes rather than automated ones).
 | Step | Command | Needs API key? | Approx. time |
 |---|---|---|---|
 | Install | `pip install -r requirements.txt && pip install -e .` | no | under a minute |
-| Full test suite | `pytest -q` | no | ~2 min (134 tests) |
+| Full test suite | `pytest -q` | no | ~2 min (148 tests) |
 | Score the reference fix | `python verify.py` | no | ~2 min (runs the full repo suite as part of scoring) |
 | Score one small task workspace | `VERIFY_ROOT=<ws> VERIFY_TASK_ID=<id> python verify.py` | no | a few seconds |
 | Flagship reward-hacking experiment | `python -m eval.reward` | no | instant, deterministic |
 | Replication on a 2nd task | `python -m eval.reward_replication` | no | instant, deterministic |
+| Deterministic verifier sweep, all 15 tasks | `python -m eval.task_verifier_sweep` | no | ~1-2 min (spins up and tears down several small workspaces) |
 | One live baseline/advanced episode | `python -m agents.baseline_agent` / `agents.advanced_agent` | **yes** | seconds, well under $0.05 |
-| N-episode comparison table | `python -m eval.run_experiment --n 5` | **yes** | a few minutes, under $1 for n=5 |
+| N-episode comparison table (any task) | `python -m eval.run_experiment --n 5 --task-id <id>` | **yes** | a few minutes, under $1 for n=5 |
+| N-episode comparison across all 15 tasks | run the row above once per `task_id` in `harness/task_registry.py` | **yes** | ~15x the single-task cost above; not run in this build |
 
 Everything above the API-key rows is fully deterministic and reproduces
 byte-identical output on every run - no network access, no randomness. The
@@ -49,7 +51,7 @@ pip install -e .
 pytest -q                     
 ```
 
-Expected output: `134 passed in ~3 min`. These tests cover the original
+Expected output: `148 passed in ~2 min`. These tests cover the original
 inventory-service unit tests, `tests/test_harness.py` (episode
 isolation, the seeded bug, the verifier's scoring in both directions
 including its rejection of a vacuous regression test - see CHANGELOG item
@@ -76,8 +78,12 @@ expansion (`test_task_ledger_transfer_rollback.py`,
 `test_task_shipping_quote_root_cause.py`,
 `test_task_dependency_resolver_cycle_detection.py`), each independently
 checking that task's seed contents, seeded bug, unfixed-seed scoring,
-fixed-plus-regression scoring, and vacuous-test rejection - none need
-network access.
+fixed-plus-regression scoring, and vacuous-test rejection; plus
+`tests/test_run_experiment_multitask.py` (Phase 8 - task selection,
+exclusion of the evaluator-only task, baseline/advanced pairing, and
+per-task/overall aggregation for `eval/run_experiment.py`'s multi-task
+mode, with the live agent calls faked so no API key is needed) - none of
+this needs network access.
 
 ```bash
 python -m eval.reward              
@@ -90,6 +96,21 @@ respectively) showing the weak evaluator crediting a vacuous test with
 full reward while the strong evaluator denies it, with the genuine
 regression test fully credited under both. Deterministic - no API key, no
 randomness, same result every run.
+
+```bash
+python -m eval.task_verifier_sweep
+```
+
+Expected output: a JSON report (also saved to
+`results/task_verifier_sweep.json`, human-readable table in
+[results/task_verifier_sweep.md](results/task_verifier_sweep.md)) scoring
+all 15 registered tasks through `verify.py` with no model involved -
+confirms every seed is genuinely buggy, every agent-facing task's
+correct-fix-no-test/correct-fix-with-test rewards are exactly 0.85/1.00,
+and every one correctly rejects a vacuous regression test. Deterministic;
+reproduces byte-identical output across runs (confirmed twice in this
+build). This is **not** a baseline-vs-advanced agent comparison - see
+Part 3 for that.
 
 ```bash
 VERIFY_TASK_ID=bugfix_restock_exact_match VERIFY_ROOT=<a workspace for that task> python verify.py
@@ -109,7 +130,7 @@ Expected output: this repo's `src/` is the already-fixed reference state
 (kept as-is from before this submission, see README's "what existed
 before"), so this scores `REWARD=1.00`. With no `VERIFY_ROOT` set, this
 runs against the repo root itself, not a small isolated task workspace -
-its `tests_passed` step therefore runs the *entire* 134-test repo suite
+its `tests_passed` step therefore runs the *entire* 148-test repo suite
 (~3 minutes on the machine this was verified on), not just the handful of
 tests a real episode workspace would have. This is expected and correct,
 not a hang - `VERIFY_ROOT=<a small workspace>` (see the task-specific
@@ -196,13 +217,35 @@ python -m eval.run_experiment --n 3 --task-id generalization_contact_index --run
 python -m eval.run_experiment --n 3 --task-id notes_tag_rename_generalization --run-id generalization-check-2
 
 python -m eval.run_experiment --n 5 --task-id ledger_transfer_rollback
+
+# Multiple named tasks in one invocation (baseline+advanced on each,
+# --n episodes per agent per task) - writes results/multitask_results.json
+# and .md instead, so it never overwrites the single-task results above:
+python -m eval.run_experiment --n 5 --task-ids bugfix_inventory ledger_transfer_rollback
+
+# Every agent-facing task in the registry (excludes edge_case_coverage,
+# which is an evaluator-only fixture - see its own task.md):
+python -m eval.run_experiment --n 5 --all-tasks
 ```
 
-Expected: `results/results.json` and `results/results.md` are overwritten
-with a real N-episode comparison (this replaces the current N=1 manual
-reference numbers with a statistical sample). New trajectory files appear
-under `trajectories/baseline/` and `trajectories/advanced/` named
+Expected (single `--task-id`): `results/results.json` and
+`results/results.md` are overwritten with a real N-episode comparison
+(this replaces the current N=1 manual reference numbers with a
+statistical sample). New trajectory files appear under
+`trajectories/baseline/` and `trajectories/advanced/` named
 `baseline-auto-NN` / `advanced-auto-NN`.
+
+Expected (`--task-ids` / `--all-tasks`): `results/multitask_results.json`
+and `.md` are written instead (a separate pair of files - a multi-task run
+never overwrites a single-task run's evidence or vice versa), with a
+per-task table and one aggregate table pooling every task's episodes per
+agent. Episode and trajectory file names are prefixed with the task ID
+(`<run-id>-<task-id>-baseline-NN`) so episodes from different tasks in the
+same run never collide. **This flag exists and is tested
+(`tests/test_run_experiment_multitask.py`), but has not been run against
+the live API in this build** - it needs the same `ANTHROPIC_API_KEY` as
+every other command in this section, which this build session does not
+have.
 
 **Approximate cost and runtime** (not independently measured by this build
 session, since it has no API key - estimated from typical `claude-opus-5`
