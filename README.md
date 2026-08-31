@@ -73,12 +73,8 @@ mutation-based check that closes a real reward-hacking hole (see the hot
 take below); a real MCP stdio client and trajectory recorder
 (`harness/mcp_client.py`, `harness/trajectory.py`, `harness/mcp_call.py`)
 that records each tool call's arguments, response, observable
-success/failure, and wall-clock duration; the baseline and advanced agent
-policies and an automated N-episode harness against the real Anthropic API
-(`agents/`, `eval/`); three real, non-simulated reference episodes and
-their full trajectories, including one genuine tool-failure-and-recovery
-episode (`trajectories/`); the measured comparison and trajectory-level
-metrics (`results/`); harness-level tests that don't need an API key
+success/failure, and wall-clock duration; the baseline and advanced agent policies and an automated N-episode harness against the real Anthropic API
+(`agents/`, `eval/`); three real, non-simulated reference episodes consisting of one baseline episode, one advanced episode, and one separate manual recovery episode (`trajectories/`); the measured baseline-vs-advanced comparison and trajectory-level metrics (`results/`); harness-level tests that do not require an API key
 (`tests/test_harness.py`); and this documentation set
 (`CHANGELOG.md`, `REPRODUCE.md`).
 
