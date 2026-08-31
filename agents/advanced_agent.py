@@ -1,14 +1,3 @@
-"""Advanced agent: structured plan -> implement -> verify -> checklist ->
-approval policy.
-
-Automates the exact protocol the manually-driven reference episode in
-trajectories/advanced/ followed (see trajectories/README.md): read the
-task and the existing tests, form an explicit plan against every numbered
-requirement, implement, run the tests, re-check the diff against the full
-requirements list (not just "did pytest exit 0"), and pass through a
-human-approval checkpoint before the episode is allowed to finish.
-"""
-
 from __future__ import annotations
 
 import asyncio

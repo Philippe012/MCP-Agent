@@ -14,6 +14,4 @@ _spec.loader.exec_module(_verify_module)
 
 
 def verify_workspace(workspace: Path, task_id: str = DEFAULT_TASK_ID) -> dict:
-    """Run the deterministic verifier against `workspace` for `task_id` and
-    return its report."""
     return _verify_module.verify(workspace, task_id)

@@ -1,24 +1,3 @@
-"""Run N episodes for both the baseline and advanced agents and save the comparison in results/results.json and results/results.md. It requires the anthropic package and an ANTHROPIC_API_KEY; see REPRODUCE.md for setup.
-This is the script to rerun the experiment and update the measured improvement results.
-
-Single-task usage (unchanged from before this file supported multiple
-tasks - writes results/results.json and results/results.md exactly as
-always):
-python -m eval.run_experiment --n 5 --model claude-opus-5 --task-id bugfix_inventory
-
-Multi-task usage (writes the separate results/multitask_results.json and
-results/multitask_results.md instead, so a multi-task run can never
-silently overwrite a single-task run's evidence or vice versa):
-python -m eval.run_experiment --n 5 --task-ids bugfix_inventory ledger_transfer_rollback
-python -m eval.run_experiment --n 5 --all-tasks
-
-Both forms need a real ANTHROPIC_API_KEY - see REPRODUCE.md. `--all-tasks`
-runs every *agent-facing* task in harness/task_registry.py; it never
-includes `edge_case_coverage`, which is an evaluator-only fixture, not a
-live-agent task (see its own task.md). Naming `edge_case_coverage`
-explicitly via --task-ids is also refused, for the same reason.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -34,10 +13,6 @@ from agents import baseline_agent, advanced_agent
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-# Tasks that exist in the registry but are deliberately not shown to a
-# live agent (see each one's own task.md). A live baseline/advanced run
-# must never be pointed at one of these, whether via --all-tasks or an
-# explicit --task-ids.
 NON_AGENT_FACING_TASK_IDS = frozenset({"edge_case_coverage"})
 
 
@@ -47,23 +22,12 @@ def _summarize(reports: list[dict]) -> dict:
         "n": len(reports),
         "mean_reward": round(statistics.mean(rewards), 4) if rewards else None,
         "median_reward": round(statistics.median(rewards), 4) if rewards else None,
-        # A sample standard deviation needs at least 2 points; below that
-        # it's not a meaningful spread, so leave it unreported (None)
-        # rather than print 0.0, which would misleadingly look like "no
-        # variance was observed" instead of "not enough data to say."
         "stdev_reward": round(statistics.stdev(rewards), 4) if len(rewards) >= 2 else None,
         "min_reward": min(rewards) if rewards else None,
         "max_reward": max(rewards) if rewards else None,
         "behavior_pass_rate": round(sum(r.get("behavior_passed", False) for r in reports) / len(reports), 4) if reports else None,
         "regression_test_rate": round(sum(r.get("regression_test_present", False) for r in reports) / len(reports), 4) if reports else None,
-        # No confidence interval is computed here even for larger n: this
-        # project's actual sample sizes (n=1-5 per REPRODUCE.md's cost
-        # estimate) are too small for a normal-approximation CI to mean
-        # anything, and manufacturing one would look more rigorous than
-        # the evidence actually is. Report n, mean, median, and stdev
-        # honestly instead; a reviewer wanting a CI can compute one from
-        # the per-episode rewards in "episodes" below at whatever n they
-        # actually ran.
+        
     }
 
 
@@ -102,22 +66,10 @@ def _write_results(args: argparse.Namespace, results: dict[str, list[dict]]) -> 
 
 
 def agent_facing_task_ids() -> tuple[str, ...]:
-    """Every registered task except the evaluator-only fixtures - the set
-    --all-tasks runs, and the set an explicit --task-ids selection is
-    checked against."""
     return tuple(t for t in all_task_ids() if t not in NON_AGENT_FACING_TASK_IDS)
 
 
 def resolve_task_ids(args: argparse.Namespace) -> list[str]:
-    """Turn --task-id / --task-ids / --all-tasks into the actual list of
-    task IDs to run, without touching any registry or verifier state.
-
-    Precedence matches argparse.error's own contract: --all-tasks and
-    --task-ids are mutually exclusive (enforced by the caller); when
-    neither is given, this returns exactly [args.task_id], which is the
-    single-task path that existed before multi-task support was added -
-    that path's behavior is otherwise untouched.
-    """
     if args.all_tasks:
         return list(agent_facing_task_ids())
     if args.task_ids:
@@ -153,12 +105,6 @@ def _aggregate_multi_task(per_task: dict[str, dict[str, list[dict]]]) -> dict:
 def _write_multi_task_results(
     args: argparse.Namespace, task_ids: list[str], per_task: dict[str, dict[str, list[dict]]]
 ) -> None:
-    """Same incremental-save discipline as _write_results: called after
-    every single episode, so a crash on task 3 of 5 doesn't lose the first
-    two tasks' results. Writes to multitask_results.{json,md} - a separate
-    file from results.{json,md}, so a multi-task run can never overwrite a
-    single-task run's evidence, and running both cannot clobber each
-    other regardless of order."""
     aggregate = _aggregate_multi_task(per_task)
     out = {
         "model": args.model,
@@ -222,12 +168,6 @@ def _write_multi_task_results(
 
 
 async def _run_multi_task(args: argparse.Namespace, task_ids: list[str]) -> None:
-    """Runs baseline + advanced, args.n episodes each, on every task in
-    task_ids, in the same environment/tools/verifier/scoring every
-    single-task run already uses (make_episode_workspace + baseline_agent
-    .run / advanced_agent.run + verify.py, unchanged) - this function only
-    adds the loop over tasks and the aggregation, nothing about how one
-    episode is run or scored."""
     per_task: dict[str, dict[str, list[dict]]] = {}
     for task_id in task_ids:
         task_prompt = (REPO_ROOT / get_task(task_id).task_file).read_text(encoding="utf-8")
@@ -329,9 +269,6 @@ def main() -> int:
         task_ids = resolve_task_ids(args)
         asyncio.run(_run_multi_task(args, task_ids))
     else:
-        # Unchanged single-task path: same function, same output files
-        # (results/results.json, results/results.md) as before multi-task
-        # support existed.
         asyncio.run(_main_async(args))
     return 0
 

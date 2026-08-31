@@ -19,9 +19,6 @@ class Cart:
         return sum(self.line_totals_cents())
 
     def total_with_discount_cents(self, discount_percent: int) -> int:
-        """Apply a percentage discount to the subtotal and round to the
-        nearest cent exactly once, on the subtotal - never once per line
-        item, which compounds rounding error across a multi-line basket."""
         subtotal = self.subtotal_cents()
         discounted = subtotal * (100 - discount_percent)
         return (discounted + 50) // 100

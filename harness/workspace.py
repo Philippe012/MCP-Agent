@@ -20,15 +20,6 @@ def _run(cmd: list[str], cwd: Path) -> None:
 
 
 def _force_rmtree(path: Path) -> None:
-    """Delete a directory tree that may be a real git repository.
-
-    Plain shutil.rmtree fails on Windows here: git writes .git/objects/*
-    read-only by design, and rmtree does not clear that attribute before
-    unlinking. Discovered by running eval/reward.py after a prior episode's
-    cleanup() had silently swallowed exactly this error (ignore_errors=True)
-    and left read-only debris behind - the next episode reusing that ID then
-    crashed on this line instead of at cleanup time.
-    """
     for root, dirs, files in os.walk(path):
         for name in dirs + files:
             try:
@@ -43,10 +34,6 @@ def make_episode_workspace(
     episode_id: str | None = None,
     task_id: str = DEFAULT_TASK_ID,
 ) -> Path:
-    """Materialize a fresh, isolated copy of the seeded (buggy) repository
-    for the given task. Returns the path to the new workspace. The caller
-    owns cleanup.
-    """
     spec = get_task(task_id)
     episode_id = episode_id or uuid.uuid4().hex[:12]
     base_dir = base_dir or Path(tempfile.gettempdir()) / "mcp_agent_benchmark_runs"
@@ -69,9 +56,7 @@ def make_episode_workspace(
         else:
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dst)
-
-    # Overwrite each fixed source with its buggy seed so there is a real
-    # bug for the agent to find and fix.
+            
     for dest_rel, source_rel in spec.buggy_sources:
         buggy = (REPO_ROOT / source_rel).read_text(encoding="utf-8")
         dest = workspace / dest_rel
@@ -94,14 +79,6 @@ def make_episode_workspace(
 
 
 def cleanup(workspace: Path) -> None:
-    """Best-effort delete of an episode workspace.
-
-    Never raises: eval/run_experiment.py calls this in a loop across many
-    episodes, and one undeletable workspace must not abort the rest. Tries
-    the read-only-safe delete first; only falls back to silently-ignored
-    deletion (and a printed warning, so the failure is visible instead of
-    invisible debris) if that still fails for some other reason.
-    """
     try:
         _force_rmtree(workspace)
     except OSError as exc:

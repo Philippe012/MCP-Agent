@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 @dataclass(frozen=True)
 class Account:
     account_id: str
-    balance: int  # integer cents - avoids float rounding noise in a ledger
+    balance: int  
 
 
 class Ledger:
@@ -18,10 +18,6 @@ class Ledger:
         return sum(a.balance for a in self.accounts.values())
 
     def transfer(self, from_id: str, to_id: str, amount: int) -> None:
-        """Move `amount` cents from `from_id` to `to_id`. Must be atomic:
-        if the destination doesn't exist, the source account must be left
-        completely unchanged - a transfer either happens in full or not at
-        all, never half."""
         if amount <= 0:
             raise ValueError("transfer amount must be positive")
         source = self.accounts[from_id]

@@ -14,16 +14,12 @@ def _now() -> str:
 @dataclass
 class Trajectory:
     episode_id: str
-    agent: str  # "baseline" | "advanced"
-    model: str  # e.g. "claude-sonnet-5 (manual, this session)" or "scripted-demo"
+    agent: str 
+    model: str  
     task: str
     started_at: str = field(default_factory=_now)
     steps: list[dict] = field(default_factory=list)
     checkpoints: list[dict] = field(default_factory=list)
-    # Distinguishes "the model decided it was done" (False) from "the loop
-    # hit max_turns and cut the episode off" (True) - without this, both
-    # look identical downstream and get silently conflated in any
-    # success/failure statistics across episodes.
     truncated_by_max_turns: bool = False
     _t0: float = field(default_factory=time.monotonic, repr=False)
 
@@ -37,20 +33,10 @@ class Trajectory:
         success: bool = True,
         duration_s: float | None = None,
     ) -> None:
-        """Record one tool call. `note` must explain the reasoning: what
-        the previous result showed and why this call follows from it.
-
-        `success` is the tool's own observable outcome (did the call raise
-        / return an error), not a judgment about whether the call was a
-        good idea - that distinction matters for studying tool-use
-        reliability separately from task strategy. `duration_s`, when
-        supplied, is this call's own wall-clock time (not the cumulative
-        `t` below, which is time since the episode started).
-        """
         if not note:
             raise ValueError("every trajectory step must carry a reasoning note")
         result_str = result if isinstance(result, str) else json.dumps(result, default=str)
-        cap = 8000 if tool == "run_tests" else 2000  # pytest failure output easily exceeds 2000 chars
+        cap = 8000 if tool == "run_tests" else 2000 
         self.steps.append(
             {
                 "index": len(self.steps),
@@ -67,8 +53,6 @@ class Trajectory:
         )
 
     def checkpoint(self, kind: str, message: str, approved: bool, auto: bool) -> None:
-        """Record a human-approval checkpoint (Rule Book: consequential
-        actions get a sandbox + human approval before they happen)."""
         self.checkpoints.append(
             {
                 "t": round(time.monotonic() - self._t0, 3),
@@ -115,11 +99,6 @@ class Trajectory:
         t.steps = data["steps"]
         t.checkpoints = data["checkpoints"]
         t.truncated_by_max_turns = data.get("truncated_by_max_turns", False)
-        # _t0 otherwise resets to "now", making `t` jump backward on every
-        # step recorded after a load() - mcp_call.py loads, appends one
-        # step, saves, and exits per invocation, so this runs on every step
-        # of every manually-driven episode. Anchoring to the last step's
-        # `t` keeps it monotonically increasing across process boundaries.
         last_t = t.steps[-1]["t"] if t.steps else 0.0
         t._t0 = time.monotonic() - last_t
         if data.get("verdict") is not None:

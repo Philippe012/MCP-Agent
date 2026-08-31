@@ -85,34 +85,22 @@ for exactly what that means and why.
 
 ## Architecture
 
-```
-task.md ──► agent (baseline or advanced policy)
-                │
-                ▼ real MCP tool calls, over real stdio transport
-        list_files / read_file / search_code / write_file / run_tests / git_diff
-                │
-                ▼ operating on an isolated, single-use episode workspace
-        (fresh copy of the seeded buggy repo; never the real repo on disk)
-                │
-                ▼ after the agent stops (or a human-approval checkpoint passes)
-          verify.py  (deterministic oracle, never the model grading itself)
-                │
-                ▼
-   reward = tests_passed × behavior_passed × regression_test_present
-```
+ReliableMCP evaluates coding agents end-to-end on real, isolated tasks. Each agent works through a real MCP stdio connection in a fresh workspace, while a deterministic verifier evaluates the resulting behavior and regression protection.
 
-`regression_test_present` is not a text/keyword match on the test file -
-it's checked by actually running the candidate test against the
-benchmark's own known-buggy source in a scratch copy and requiring it to
-fail there (`verify.py::_regression_test_proves_the_fix`). An earlier,
-simpler version of this check was gameable; see the hot take.
+![ReliableMCP Architecture](images/architecture.png)
 
-Every tool call is recorded to a trajectory (`harness/trajectory.py`):
-tool name, arguments, response, an explicit success/failure flag, this
-call's own wall-clock duration, and a required human-authored note
-explaining why the call was made. This is deliberately observable
-behavior only - nothing about the model's hidden reasoning is recorded or
-claimed.
+The evaluation follows a simple pipeline:
+
+**Benchmark Tasks → Agent Policy → MCP Execution Environment → Behavioral Evaluation → Evidence & Results**
+
+The same environment and tools are used for both the baseline and advanced policies. Each episode starts from a seeded buggy repository and runs in an isolated workspace, keeping episodes independent and preventing access to answer material.
+
+The evaluator checks more than whether the visible test suite passes. It verifies the required behavior, validates that the regression test actually catches the seeded bug, and records the resulting reward and trajectory evidence.
+
+`regression_test_present` is therefore not a text or keyword match. The candidate regression test is executed against the benchmark's known-buggy implementation in a scratch copy and must fail there (`verify.py::_regression_test_proves_the_fix`). An earlier version of this check was gameable; the resulting reward-hacking finding is documented in [RESEARCH.md](RESEARCH.md).
+
+Every MCP tool call is recorded in a trajectory (`harness/trajectory.py`), including the tool name, arguments, response, explicit success/failure status, wall-clock duration, and a human-authored note describing why the call was made. The benchmark records observable tool behavior only and makes no claims about the model's hidden reasoning.
+
 
 ## The 15 tasks
 

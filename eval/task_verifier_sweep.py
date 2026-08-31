@@ -1,23 +1,3 @@
-"""One-off script for the Phase 7 audit: a deterministic, per-task sweep of
-every registered task's verifier, with NO live model involved.
-
-This does not run the baseline or advanced agent. It answers a narrower,
-fully deterministic question for all 15 tasks at once: does this task's
-seeded bug genuinely fail full reward, does the real reference fix reach
-1.0 once a genuine regression test is added, does a fix with no
-regression test score 0.85 (the same number the real bugfix_inventory
-baseline episode scored), and does a vacuous regression test get
-correctly rejected at 0.85 too? This is the same thing every
-tests/test_task_<id>.py file already checks with assertions; this script
-just runs the identical mechanism and prints the actual reward numbers as
-one table instead of pass/fail booleans, so they can be reported as
-evidence.
-
-Not a substitute for a live baseline-vs-advanced agent run - see
-CHANGELOG's "Phase 7" entry and README's "Limitations" for why that could
-not be run in this session (no ANTHROPIC_API_KEY) and the exact command
-to run it once a key is available.
-"""
 from __future__ import annotations
 
 import json
@@ -30,9 +10,6 @@ from harness.workspace import make_episode_workspace, cleanup
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-# task_id -> (list of (workspace-relative dest, repo-root-relative fixed
-# source) pairs to restore to the real fixed reference, regression fixture
-# path relative to repo root, or None if the task is not agent-facing)
 TASK_FIXTURES: dict[str, tuple[list[tuple[str, str]], str | None]] = {
     "bugfix_inventory": (
         [("src/mcp_agent_benchmark/inventory.py", "src/mcp_agent_benchmark/inventory.py")],
@@ -48,7 +25,7 @@ TASK_FIXTURES: dict[str, tuple[list[tuple[str, str]], str | None]] = {
     ),
     "edge_case_coverage": (
         [("src/mcp_agent_benchmark/inventory.py", "src/mcp_agent_benchmark/inventory.py")],
-        None,  # not agent-facing; covered separately by eval/reward_replication.py
+        None,  
     ),
     "generalization_contact_index": (
         [("src/contact_index/directory.py", "src/contact_index/directory.py")],
@@ -117,9 +94,6 @@ def sweep_task(task_id: str, base_dir: Path) -> dict:
 
     if regression_fixture is None:
         return result
-
-    # 2. Real fix, no regression test - mirrors the real baseline episode's
-    #    outcome shape (correct fix, no new test).
     ws = make_episode_workspace(base_dir=base_dir, episode_id=f"sweep-{task_id}-fixnotest", task_id=task_id)
     _apply_fixed(ws, fixed_files)
     report = verify_workspace(ws, task_id=task_id)

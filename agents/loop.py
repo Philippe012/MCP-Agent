@@ -1,14 +1,7 @@
-"""Manual Anthropic tool-use loop shared by the baseline and advanced agents.
-
-Kept manual so tool calls, retries, and human approval stay under our control
-without relying on the SDK's beta tool_runner.
-
-Requires anthropic and ANTHROPIC_API_KEY. See REPRODUCE.md.
-"""
-
 from __future__ import annotations
 
 import time
+import anthropic 
 from pathlib import Path
 from typing import Callable
 
@@ -43,41 +36,7 @@ async def run_agent_episode(
     task_id: str = DEFAULT_TASK_ID,
     session_factory: Callable[[Path], object] = MCPToolSession,
 ) -> dict:
-    """Run one episode: agent <-> real MCP server, until the model stops
-    calling tools or `max_turns` is hit. Returns the verifier's report.
-
-    `require_approval=True` adds a human-approval checkpoint before the
-    episode is allowed to finish (Rule Book: gate consequential actions
-    behind a sandbox + human approval). In batch/unattended runs
-    (`interactive_approval=False`) the checkpoint is auto-approved and the
-    fact that it was auto- rather than human-approved is recorded in the
-    trajectory, not hidden. Pass `interactive_approval=True` (with an
-    optional `approval_hook`, default: a real terminal prompt) to make it
-    a genuine blocking approval.
-
-    `task_id` must match the task_id the workspace was actually seeded
-    with (harness/workspace.py's make_episode_workspace) - it's not
-    inferred from the workspace, so the caller is responsible for keeping
-    the two in sync (mirrors how MCP_AGENT_BENCHMARK_ROOT has no silent fallback:
-    an explicit, possibly-wrong value fails loudly and correctably, a
-    guessed one wouldn't). `session_factory` swaps in a
-    FaultInjectingMCPToolSession (harness/fault_injection.py) for
-    robustness experiments; defaults to a real, unmodified MCPToolSession.
-    """
-    import anthropic  # imported lazily so the rest of the harness works without the package installed
-
-    # AsyncAnthropic, not the sync client: run_agent_episode runs inside an
-    # event loop (many episodes get driven concurrently by
-    # eval/run_experiment.py), and a sync client.messages.create() call
-    # would block that loop for the whole request, silently serializing
-    # everything anyway. max_retries is raised from the SDK default (2) to
-    # 5: the client already retries RateLimitError/APIConnectionError/
-    # InternalServerError with exponential backoff on its own (see
-    # anthropic's own retry handling) - a second, hand-written retry loop
-    # here would just duplicate that. What the SDK can't do for us is save
-    # our own trajectory state, so if retries are ultimately exhausted the
-    # `except Exception` below still saves whatever was captured before
-    # re-raising, instead of losing the whole episode.
+    
     client = anthropic.AsyncAnthropic(max_retries=5)
     traj = Trajectory(episode_id=episode_id, agent=agent_name, model=model, task=task_prompt)
 
@@ -98,7 +57,6 @@ async def run_agent_episode(
                 )
 
                 if response.stop_reason != "tool_use":
-                    # end_turn, max_tokens, or anything else: the model believes it is done (or stuck).
                     break
 
                 tool_use_blocks = [b for b in response.content if b.type == "tool_use"]
@@ -112,24 +70,10 @@ async def run_agent_episode(
                         result = await session.call(block.name, **block.input)
                         is_error = False
                     except MCPToolError as exc:
-                        # A genuine tool failure (the real MCP server
-                        # reported one) - this is the recovery signal we
-                        # want to measure. Anything else raised by
-                        # session.call (a transport problem, a bug in our
-                        # own client) is NOT caught here on purpose: it
-                        # should crash the episode loudly via the outer
-                        # `except Exception` below, not get silently
-                        # recorded as if the agent had hit a normal tool
-                        # error.
                         result = str(exc)
                         is_error = True
                     duration_s = time.monotonic() - call_start
 
-                    # A call is a retry of the most recent unresolved
-                    # failure of the *same tool name* - not just the
-                    # immediately preceding step, since a real recovery
-                    # often has other tool calls (e.g. list_files) in
-                    # between a failed read_file and the corrected one.
                     retry_of = pending_failures.pop(block.name, None)
                     traj.step(
                         block.name,
@@ -152,12 +96,8 @@ async def run_agent_episode(
                     )
 
                 messages.append({"role": "user", "content": tool_results})
-                traj.save(trajectory_out_dir)  # incremental: a crash on the next turn shouldn't erase this one
+                traj.save(trajectory_out_dir) 
             else:
-                # The while condition went false without a `break`, i.e.
-                # the loop ran out of turns rather than the model deciding
-                # it was done - record that distinction so it isn't
-                # silently conflated with a normal finish downstream.
                 traj.truncated_by_max_turns = True
         except Exception:
             traj.save(trajectory_out_dir)

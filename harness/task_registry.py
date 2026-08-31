@@ -10,30 +10,9 @@ DEFAULT_TASK_ID = "bugfix_inventory"
 class TaskSpec:
     task_id: str
     task_file: str
-    # Files/dirs (relative to the repo root) copied verbatim into a fresh
-    # episode workspace. Each entry must be as specific as possible - the
-    # original design copied the *entire* `tasks/` directory, which would
-    # have leaked every other task's task.md into every episode workspace
-    # the moment a second task existed. Never list a whole shared
-    # directory here; list this task's own files.
     seed_include: tuple[str, ...]
-    # (workspace-relative destination, repo-root-relative source) pairs.
-    # Used twice for the same reason: to seed the initial buggy workspace
-    # (harness/workspace.py), and to mutate an otherwise-fixed workspace
-    # back to buggy when checking whether a candidate regression test
-    # actually proves the fix (verify.py). Keeping one mapping serving
-    # both purposes means the "buggy" and "known-buggy-for-mutation-testing"
-    # source can never drift apart into two copies.
     buggy_sources: tuple[tuple[str, str], ...]
-    # Workspace-relative path the agent is expected to create. Stripped
-    # during seeding (pre-task state has no regression test yet) and
-    # required, then mutation-tested, during verification.
     regression_test_path: str
-    # Python source run via `python -c` against the workspace. Must
-    # exercise at least one behavioral property the *visible* test suite
-    # (whatever's in seed_include) could not have caught on its own - this
-    # is what keeps "passes the tests the agent can see" from ever being
-    # sufficient for full reward, at every task, not just this one.
     behavior_check: str
 
 
@@ -127,19 +106,11 @@ register(
             "requirements.txt",
             "pyproject.toml",
         ),
-        # Two overrides: the real buggy source (identical to
-        # bugfix_inventory's), plus a decoy file placed alongside it. The
-        # decoy is a `buggy_sources` entry rather than a plain
-        # seed_include path because its destination (src/mcp_agent_benchmark/) sits
-        # under a directory this task doesn't otherwise copy wholesale.
         buggy_sources=(
             ("src/mcp_agent_benchmark/inventory.py", "seed/inventory_buggy.py"),
             ("src/mcp_agent_benchmark/legacy_search.py", "tasks/decoy_context_efficiency/seed/legacy_search.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # Identical to bugfix_inventory's - the intervention under study
-        # here is the decoy file's presence, not a different bug or a
-        # different notion of "correct" (see TASK_SUITE_DESIGN.md C2).
         behavior_check="""
 from mcp_agent_benchmark.inventory import InventoryService, Product
 p = Product('X', 'Red Shoe', ('sport', 'red', 'shoe'), 1)
@@ -156,11 +127,6 @@ assert [x.sku for x in s.search('')] == ['X', 'Y']
 
 register(
     TaskSpec(
-        # Fixture for eval/reward_replication.py, not currently run against
-        # a live agent (see TASK_SUITE_DESIGN.md C5) - reuses this same
-        # registry and mutation-testing mechanism purely so the replication
-        # study exercises the real machinery, not a second hand-rolled copy
-        # of it.
         task_id="edge_case_coverage",
         task_file="tasks/edge_case_coverage/task.md",
         seed_include=(
@@ -214,11 +180,6 @@ assert [c.contact_id for c in d.find('')] == ['C1', 'C2']
     )
 )
 
-# --- Suite expansion (5 -> 15 tasks) - see CHANGELOG.md's "Phase 5" entry
-# for the full design rationale, capability mapping, and rejected
-# candidates behind each task below. Every one of these is a genuinely
-# different domain and bug shape from the inventory-service tasks above,
-# not a renamed copy - see TASK_SUITE_DESIGN.md's addendum note.
 
 register(
     TaskSpec(
@@ -235,11 +196,6 @@ register(
             ("src/ledger/account.py", "tasks/ledger_transfer_rollback/seed/account_buggy.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # Exercises the atomicity invariant (a failed transfer must not
-        # partially mutate state) that the visible test suite never
-        # checks - it only tests the all-known-accounts happy path and the
-        # insufficient-funds path, neither of which touches an unknown
-        # destination account.
         behavior_check="""
 from ledger.account import Account, Ledger
 l = Ledger([Account('A', 100), Account('B', 50)])
@@ -273,9 +229,6 @@ register(
             ("src/scheduler/calendar.py", "tasks/calendar_booking_overlap/seed/calendar_buggy.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # The visible suite only tests clearly-separated and clearly-
-        # overlapping bookings, never the touching-boundary case this
-        # check exercises.
         behavior_check="""
 from scheduler.calendar import Calendar
 cal = Calendar()
@@ -308,9 +261,6 @@ register(
             ("src/configloader/loader.py", "tasks/config_loader_backward_compat/seed/loader_buggy.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # The visible suite only exercises the nested format and the
-        # all-missing default - never the legacy flat format this checks,
-        # nor the both-present precedence rule.
         behavior_check="""
 from configloader.loader import load_timeout, load_retries
 assert load_timeout({'timeout': 45}) == 45
@@ -338,8 +288,6 @@ register(
             ("src/batch/processor.py", "tasks/batch_partial_failure_recovery/seed/processor_buggy.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # The visible suite only exercises the all-success path - never a
-        # batch with a failing item, which is exactly what this checks.
         behavior_check="""
 from batch.processor import process_batch
 def worker(x):
@@ -372,9 +320,6 @@ register(
             ("src/cache/lru.py", "tasks/lru_cache_eviction_invariant/seed/lru_buggy.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # The visible suite only exercises write-order eviction - never a
-        # get() call before an eviction, which is exactly the recency
-        # invariant this checks.
         behavior_check="""
 from cache.lru import LRUCache
 c = LRUCache(2)
@@ -400,17 +345,11 @@ register(
             "requirements.txt",
             "pyproject.toml",
         ),
-        # Two overrides, same reasoning as decoy_context_efficiency: the
-        # real buggy source, plus a decoy file with a plausible-looking
-        # but unrelated TODO comment that never gets imported anywhere.
         buggy_sources=(
             ("src/templating/render.py", "tasks/template_render_decoy/seed/render_buggy.py"),
             ("src/templating/legacy_render.py", "tasks/template_render_decoy/seed/legacy_render.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # The visible suite only exercises the unspaced placeholder form -
-        # never a placeholder with surrounding whitespace, which is
-        # exactly what this checks.
         behavior_check="""
 from templating.render import render
 assert render('Hello {{ name }}!', {'name': 'Ada'}) == 'Hello Ada!'
@@ -435,13 +374,6 @@ register(
             ("src/pricing/cart.py", "tasks/pricing_discount_rounding/seed/cart_buggy.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # Unlike every other task above, one test in the *visible* suite
-        # (test_multi_item_discount_rounds_once_on_the_subtotal) already
-        # fails against the buggy seed - the agent must diagnose a real
-        # failure, not discover a hidden one from scratch. This check uses
-        # yet a third set of numbers, independent of both the visible test
-        # and whatever the agent is asked to add, so a fix cannot be
-        # special-cased to just those two.
         behavior_check="""
 from pricing.cart import Cart, LineItem
 cart = Cart([LineItem('A', 13, 1) for _ in range(5)])
@@ -453,13 +385,6 @@ assert cart.total_with_discount_cents(0) == cart.subtotal_cents()
 
 register(
     TaskSpec(
-        # Held out, same discipline as generalization_contact_index: never
-        # referenced while iterating on prompts or the other tasks above.
-        # Transfers a DIFFERENT developed capability (C1's exact-vs-
-        # substring self-correction trap) to an unseen domain, rather than
-        # replicating C6's dedup pattern a second time - see CHANGELOG's
-        # Phase 5 entry for why this is a more informative second
-        # generalization instance than another dedup clone would be.
         task_id="notes_tag_rename_generalization",
         task_file="tasks/notes_tag_rename_generalization/task.md",
         seed_include=(
@@ -474,19 +399,19 @@ register(
         ),
         regression_test_path="tests/test_task_regression.py",
         behavior_check="""
-from notes.store import Note, NoteStore
-n1 = Note('N1', 'Standup notes', ('work', 'daily'))
-n2 = Note('N2', 'Repair notes', ('workshop',))
-n3 = Note('N3', 'Extra notes', ('homework',))
-store = NoteStore([n1, n2, n3])
-changed = store.rename_tag('work', 'job')
-assert changed == 1
-by_id = {n.note_id: n for n in store.notes}
-assert by_id['N1'].tags == ('job', 'daily')
-assert by_id['N2'].tags == ('workshop',)
-assert by_id['N3'].tags == ('homework',)
-assert [n.note_id for n in store.find_by_tag('shop')] == ['N2']
-""",
+            from notes.store import Note, NoteStore
+            n1 = Note('N1', 'Standup notes', ('work', 'daily'))
+            n2 = Note('N2', 'Repair notes', ('workshop',))
+            n3 = Note('N3', 'Extra notes', ('homework',))
+            store = NoteStore([n1, n2, n3])
+            changed = store.rename_tag('work', 'job')
+            assert changed == 1
+            by_id = {n.note_id: n for n in store.notes}
+            assert by_id['N1'].tags == ('job', 'daily')
+            assert by_id['N2'].tags == ('workshop',)
+            assert by_id['N3'].tags == ('homework',)
+            assert [n.note_id for n in store.find_by_tag('shop')] == ['N2']
+        """,
     )
 )
 
@@ -502,30 +427,22 @@ register(
             "requirements.txt",
             "pyproject.toml",
         ),
-        # quote.py (where the visible symptom shows up) is correct and
-        # copied verbatim via seed_include above; only rates.py (the
-        # actual root cause, one call away) is seeded buggy - the point of
-        # this task is that the fix is not in the file the symptom points
-        # to.
         buggy_sources=(
             ("src/shipping/rates.py", "tasks/shipping_quote_root_cause/seed/rates_buggy.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # The visible suite only exercises exact-multiple-of-1000g
-        # weights, where floor and ceiling division agree - never an odd
-        # weight, which is exactly what this checks.
         behavior_check="""
-from shipping.quote import quote_cents
-assert quote_cents('standard', 2000) == 800
-assert quote_cents('standard', 1500) == 800
-assert quote_cents('standard', 1) == 400
-assert quote_cents('express', 2500) == 2700
-try:
-    quote_cents('overnight', 1000)
-    assert False, 'expected ValueError'
-except ValueError:
-    pass
-""",
+            from shipping.quote import quote_cents
+            assert quote_cents('standard', 2000) == 800
+            assert quote_cents('standard', 1500) == 800
+            assert quote_cents('standard', 1) == 400
+            assert quote_cents('express', 2500) == 2700
+            try:
+                quote_cents('overnight', 1000)
+                assert False, 'expected ValueError'
+            except ValueError:
+                pass
+        """,
     )
 )
 
@@ -544,25 +461,22 @@ register(
             ("src/deps/resolver.py", "tasks/dependency_resolver_cycle_detection/seed/resolver_buggy.py"),
         ),
         regression_test_path="tests/test_task_regression.py",
-        # The visible suite only exercises acyclic graphs - never a cycle,
-        # which is exactly the invariant (every valid order this function
-        # returns must actually be valid, or it must raise) this checks.
         behavior_check="""
-from deps.resolver import resolve_order
-order = resolve_order({'app': ['lib'], 'lib': []})
-assert order.index('lib') < order.index('app')
-order2 = resolve_order({'app': ['b', 'c'], 'b': ['d'], 'c': ['d'], 'd': []})
-assert order2.index('d') < order2.index('b') and order2.index('d') < order2.index('c')
-try:
-    resolve_order({'a': ['b'], 'b': ['a']})
-    assert False, 'expected ValueError for a direct cycle'
-except ValueError:
-    pass
-try:
-    resolve_order({'a': ['b'], 'b': ['c'], 'c': ['a']})
-    assert False, 'expected ValueError for a longer cycle'
-except ValueError:
-    pass
-""",
+            from deps.resolver import resolve_order
+            order = resolve_order({'app': ['lib'], 'lib': []})
+            assert order.index('lib') < order.index('app')
+            order2 = resolve_order({'app': ['b', 'c'], 'b': ['d'], 'c': ['d'], 'd': []})
+            assert order2.index('d') < order2.index('b') and order2.index('d') < order2.index('c')
+            try:
+                resolve_order({'a': ['b'], 'b': ['a']})
+                assert False, 'expected ValueError for a direct cycle'
+            except ValueError:
+                pass
+            try:
+                resolve_order({'a': ['b'], 'b': ['c'], 'c': ['a']})
+                assert False, 'expected ValueError for a longer cycle'
+            except ValueError:
+                pass
+        """,
     )
 )

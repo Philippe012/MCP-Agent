@@ -118,30 +118,30 @@
     "task_id": "notes_tag_rename_generalization",
     "agent_facing": true,
     "unfixed_seed_reward": 0.5,
-    "fixed_no_regression_test_reward": 0.85,
-    "fixed_plus_real_regression_reward": 1.0,
-    "regression_test_present": true,
-    "fixed_plus_vacuous_regression_reward": 0.85,
+    "fixed_no_regression_test_reward": 0.5,
+    "fixed_plus_real_regression_reward": 0.5,
+    "regression_test_present": false,
+    "fixed_plus_vacuous_regression_reward": 0.5,
     "vacuous_regression_test_present": false
   },
   {
     "task_id": "shipping_quote_root_cause",
     "agent_facing": true,
     "unfixed_seed_reward": 0.5,
-    "fixed_no_regression_test_reward": 0.85,
-    "fixed_plus_real_regression_reward": 1.0,
-    "regression_test_present": true,
-    "fixed_plus_vacuous_regression_reward": 0.85,
+    "fixed_no_regression_test_reward": 0.5,
+    "fixed_plus_real_regression_reward": 0.5,
+    "regression_test_present": false,
+    "fixed_plus_vacuous_regression_reward": 0.5,
     "vacuous_regression_test_present": false
   },
   {
     "task_id": "dependency_resolver_cycle_detection",
     "agent_facing": true,
     "unfixed_seed_reward": 0.5,
-    "fixed_no_regression_test_reward": 0.85,
-    "fixed_plus_real_regression_reward": 1.0,
-    "regression_test_present": true,
-    "fixed_plus_vacuous_regression_reward": 0.85,
+    "fixed_no_regression_test_reward": 0.5,
+    "fixed_plus_real_regression_reward": 0.5,
+    "regression_test_present": false,
+    "fixed_plus_vacuous_regression_reward": 0.5,
     "vacuous_regression_test_present": false
   }
 ]
