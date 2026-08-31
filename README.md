@@ -23,16 +23,16 @@ process: isolated buggy tasks, behavioral verification, regression-test
 validation, trajectory-level evidence, and controlled reward-hacking
 experiments.
 
-**Where to find the evidence for each part of the hackathon rubric:**
+## Where to Find the Evidence for Each Hackathon Rubric Criterion
 
-| Criterion | Weight | Where |
-|---|---|---|
-| Problem & User Value | 15% | "Who this is for" below |
-| Agent Solution & Engineering | 30% | "Architecture", "The 15 tasks", `harness/`, `agents/` |
-| End-to-End Quality | 20% | 148/148 tests passing, `python verify.py` → `REWARD=1.00`, a real MCP stdio server (nothing mocked), the verifier validated deterministically on all 15 tasks |
-| Measured Improvement | 15% | Two kinds, kept separate: (1) **N=1 real agent episode per policy** on one task - "Baseline vs. advanced" below, not a statistical sample; (2) a deterministic verifier sweep across **all 15 tasks**, no model involved - "Deterministic verifier validation" below |
-| Reproducibility | 15% | "Quickstart" below, [REPRODUCE.md](REPRODUCE.md) - exact commands, versions, runtime |
-| Hot Take / Insights | 5% | "Main failure mode and hot take" |
+| Criterion | Weight | Evidence in this repository |
+|---|---:|---|
+| **Problem & User Value** | 15% | **"Who this is for"** — the reliability bottleneck, intended users, and why verifying agent completion matters. |
+| **Agent Solution & Engineering** | 30% | **"Architecture"**, **"The 15 Tasks"**, `harness/`, and `agents/` — seeded tasks, isolated workspaces, real MCP tools, baseline/advanced policies, trajectory recording, and deterministic evaluation. |
+| **End-to-End Quality** | 20% | **148/148 tests passing**, `python verify.py` → `REWARD=1.00`, real MCP stdio execution with no mocked tool server, and deterministic verifier validation across all **15 registered fixtures**. |
+| **Measured Improvement** | 15% | Two forms of evidence, kept separate: (1) **N=1 real agent episode per policy** on `bugfix_inventory` — Baseline vs. Advanced; (2) a deterministic verifier sweep across **14 agent-facing tasks plus 1 evaluator-only fixture**, with no model involved. |
+| **Reproducibility** | 15% | **"Quickstart"** and [`REPRODUCE.md`](REPRODUCE.md) — exact commands, dependencies, versions, runtime requirements, and expected results. |
+| **Hot Take / Insights** | 5% | **"Main Failure Mode and Hot Take"** — the observed agent/evaluator failure mode, reward-hacking experiment, mitigation, and practical lesson for building reliable agents. |
 
 ## Who this is for, and the bottleneck it addresses
 
